@@ -26,13 +26,17 @@ from sklearn.naive_bayes import GaussianNB as GNB # 高斯朴素贝叶斯
 from sklearn.neural_network import MLPClassifier as MLP # 多层感知机
 
 from pyriemann.estimation import Covariances
-from pyriemann.tangentspace import TangentSpace as TS
-from pyriemann.spatialfilters import CSP
+from pyriemann.tangentspace import TangentSpace as TS, FGDA
 from pyriemann.classification import MDM, FgMDM
-from pyriemann.transfer import TLDummy, TLCenter, TLStretch, TLRotate, TLClassifier
+from pyriemann.classification import KNearestNeighbor as RKNN
+from pyriemann.classification import SVC as RKSVM
+from pyriemann.transfer import TLDummy, TLCenter, TLStretch, TLRotate, MDWM
+from machine_learning import RiemannCSP as CSP
 
 from machine_learning import TRCSP, DCPM, TRCA, SBLEST, TSclassifier
-from .base import encode_datasets
+from .base import encode_datasets, TLClassifier
+
+
 
 __all__ = [
     'BaseEstimator',
@@ -63,13 +67,17 @@ __all__ = [
     'MLP',
     'Covariances',
     'TS',
+    'FGDA',
     'CSP',
     'MDM',
     'FgMDM',
+    'RKNN',
+    'RKSVM',
     'TLDummy',
     'TLCenter',
     'TLStretch',
     'TLRotate',
+    'MDWM',
     'TLClassifier',
     'TRCSP',
     'DCPM',

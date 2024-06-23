@@ -53,6 +53,10 @@ class RiemannChannelSelector(BaseEstimator, TransformerMixin):
         self.nelec = nelec
         self.metric = metric
         self.n_jobs = n_jobs
+    
+    def __repr__(self):
+        """Repr."""
+        return f'{self.__class__.__name__}(nelec={self.nelec}, metric={self.metric}, n_jobs={self.n_jobs})'
 
     def fit(self, X, y=None, sample_weight=None):
         """Find the optimal subset of electrodes.
@@ -125,8 +129,12 @@ class CSPChannelSelector(BaseEstimator, TransformerMixin):
         """Init."""
         self.nelec = nelec
         self.metric = metric
+    
+    def __repr__(self):
+        """Repr."""
+        return f'{self.__class__.__name__}(nelec={self.nelec}, metric={self.metric})'
 
-    def fit(self, X, y):
+    def fit(self, X, y, **sample_weight):
         """Train CSP spatial filters.
 
         Parameters
@@ -164,7 +172,7 @@ class CSPChannelSelector(BaseEstimator, TransformerMixin):
         # estimate class means
         C = []
         for c in classes:
-            C.append(mean_covariance(Cov[y == c], self.metric))
+            C.append(mean_covariance(Cov[y == c], self.metric, sample_weight=sample_weight[y == c]))
         C = np.array(C)
 
         # Switch between binary and multiclass
@@ -174,7 +182,8 @@ class CSPChannelSelector(BaseEstimator, TransformerMixin):
             ix = np.argsort(np.abs(evals - 0.5))[::-1]
         elif len(classes) > 2:
             evecs, D = ajd_pham(C)
-            Ctot = mean_covariance(C, self.metric)
+            sample_weight_ = np.array([sample_weight[y == c].sum() for c in classes])
+            Ctot = mean_covariance(C, self.metric, sample_weight=sample_weight_)    
             evecs = evecs.T
 
             # normalize
@@ -216,4 +225,64 @@ class CSPChannelSelector(BaseEstimator, TransformerMixin):
             Set of EEG signals after reduction of the number of channels.
         """
         return X[:, self.subelec_, :]
-    
+
+class FlatChannelRemover(BaseEstimator, TransformerMixin):
+    """Finds and removes flat channels.
+
+    Attributes
+    ----------
+    channels_ : ndarray, shape (n_good_channels)
+        The indices of the non-flat channels.
+    """
+
+    def fit(self, X, y=None, **fit_params):
+        """Find flat channels.
+
+        Parameters
+        ----------
+        X : ndarray, shape (n_matrices, n_channels, n_times)
+            Multi-channel time-series.
+        y : None
+            Not used, here for compatibility with sklearn API.
+
+        Returns
+        -------
+        X : ndarray, shape (n_matrices, n_good_channels, n_times)
+            Multi-channel time-series without flat channels.
+        """
+        std = np.mean(np.std(X, axis=2) ** 2, 0)
+        self.channels_ = np.where(std)[0]
+        return self
+
+    def transform(self, X):
+        """Remove flat channels.
+
+        Parameters
+        ----------
+        X : ndarray, shape (n_matrices, n_channels, n_times)
+            Multi-channel time-series.
+
+        Returns
+        -------
+        X : ndarray, shape (n_matrices, n_good_channels, n_times)
+            Multi-channel time-series without flat channels.
+        """
+        return X[:, self.channels_, :]
+
+    def fit_transform(self, X, y=None, **fit_params):
+        """Find and remove flat channels.
+
+        Parameters
+        ----------
+        X : ndarray, shape (n_matrices, n_channels, n_times)
+            Multi-channel time-series.
+        y : None
+            Not used, here for compatibility with sklearn API.
+
+        Returns
+        -------
+        X : ndarray, shape (n_matrices, n_good_channels, n_times)
+            Multi-channel time-series without flat channels.
+        """
+        self.fit(X, y)
+        return self.transform(X)

@@ -194,6 +194,9 @@ class RSF(BaseEstimator, TransformerMixin):
         self.W = None
         self.obj_values = None
         self.W_history = None
+    
+    def __repr__(self):
+        return f"RSF(dim={self.dim}, method='{self.method}', solver='{self.solver}', flag={self.flag})"
 
     def fit(self, X, y):
         """

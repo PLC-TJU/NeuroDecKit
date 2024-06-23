@@ -6,6 +6,10 @@ import numpy as np
 from typing import List, Union, Optional
 from numpy import ndarray
 
+from sklearn.base import BaseEstimator, is_classifier
+from sklearn.pipeline import Pipeline
+from sklearn.metrics import accuracy_score
+
 def _combine_datasets(Xt: ndarray, yt: ndarray, Xs: Optional[Union[ndarray, List[ndarray]]] = None, ys: 
     Optional[Union[ndarray, List[ndarray]]] = None) -> (List[ndarray], List[ndarray]): # type: ignore
     """
@@ -86,7 +90,7 @@ def combine_and_encode_datasets(Xt: ndarray, yt: ndarray, Xs: Optional[Union[nda
     """
     # 如果Tags为空，则生成默认的Tags列表
     if Tags is None:
-        num_datasets = 1 if Xs is None else (len(Xs) + 1 if isinstance(Xs, list) else Xs.shape[0] + 1)
+        num_datasets = 1 if Xs is None else (len(Xs) + 1 if isinstance(Xs, list) or Xs.ndim == 4 else 2)
         Tags = ['S' + str(i+1) for i in range(num_datasets)]
 
     # 调用combine_datasets函数合并数据集
@@ -108,21 +112,22 @@ def combine_and_encode_datasets(Xt: ndarray, yt: ndarray, Xs: Optional[Union[nda
 # 与decode_domains搭配使用: from pyriemann.transfer import decode_domains
 def encode_datasets(X: Union[List[ndarray], ndarray], 
                     Y: Union[List[ndarray], ndarray], 
-                    domain_tags: Optional[List[str]] = None) -> (ndarray, ndarray, List[str]):  # type: ignore
+                    domain_tags: Optional[List[str]] = None) -> (ndarray, ndarray, List[str]): # type: ignore
     """
     将来自不同源域的数据集整理并编码标签。
 
     参数:
-    X (Union[List[ndarray], ndarray]): 不同来源的数据集，可以是列表或4维数组。
-    Y (Union[List[ndarray], ndarray]): 相应的不同来源的标签集，可以是列表或2维数组。
+    X (Union[List[ndarray], ndarray]): 不同来源的数据集，可以是列表或3/4维数组。
+    Y (Union[List[ndarray], ndarray]): 相应的不同来源的标签集，可以是列表或1/2维数组。
     domain_tags (Optional[List[str]], 默认为None): 各个来源数据集的标记，长度应与数据集数量一致。
 
     返回:
-    (ndarray, ndarray): 整理后的数据集X和编码后的标签y_enc。
+    (ndarray, ndarray, List[str]): 整理后的数据集X和编码后的标签y_enc及domain_tags。
     """
+    
     # 如果domain_tags为空，则生成默认的domain_tags列表
     if domain_tags is None:
-        num_datasets = len(X) if isinstance(X, list) else X.shape[0]
+        num_datasets = len(X) if isinstance(X, list) or X.ndim == 4 else 1
         domain_tags = ['S' + str(i+1) for i in range(num_datasets)]
 
     # 初始化编码后的数据集和标签列表
@@ -146,8 +151,7 @@ def encode_datasets(X: Union[List[ndarray], ndarray],
     
     # 检查X是否为3维数组
     elif X.ndim == 3:
-        X_encoded.append(X)
-        y_encoded.extend([domain_tags[0] + '/' + str(y) for y in Y])
+        return X, Y, domain_tags
 
     # 其他情况，抛出异常
     else:
@@ -198,3 +202,204 @@ def decode_domains(X_enc, y_enc):
         y.append(y_dec_[-1])
         y = [int(i) for i in y]
     return X_enc, np.array(y), np.array(domain)
+
+
+
+class TLSplitter():
+    """Class for handling the cross-validation splits of multi-domain data.
+
+    This is a wrapper to sklearn's cross-validation iterators [1]_ which
+    ensures the handling of domain information with the data points. In fact,
+    the data from source domain is always fully available in the training
+    partition whereas the random splits are done on the data points from the
+    target domain.
+
+    Parameters
+    ----------
+    target_domain : str
+        Domain considered as target.
+    cv : None | BaseCrossValidator | BaseShuffleSplit, default=None
+        An instance of a cross validation iterator from sklearn.
+
+    References
+    ----------
+    .. [1] https://scikit-learn.org/stable/modules/cross_validation.html#cross-validation-iterators
+
+    Notes
+    -----
+    .. versionadded:: 0.4
+    """  # noqa
+    def __init__(self, target_domain, cv):
+
+        self.target_domain = target_domain
+        self.cv = cv
+
+    def split(self, X, y, groups=None):
+        """Generate indices to split data into training and test set.
+
+        Parameters
+        ----------
+        X : ndarray, shape (n_matrices, n_channels, n_channels)
+            Set of SPD matrices.
+        y : ndarray, shape (n_matrices,)
+            Extended labels for each matrix.
+
+        Yields
+        ------
+        train : ndarray
+            The training set indices for that split.
+        test : ndarray
+            The testing set indices for that split.
+        """
+
+        # decode the domains of the data points
+        X, y, domain = decode_domains(X, y)
+
+        # indentify the indices of the target dataset
+        idx_source = np.where(domain != self.target_domain)[0]
+        idx_target = np.where(domain == self.target_domain)[0]
+        y_target = y[idx_target]
+
+        # index of training-split for the target data points
+        ss_target = self.cv.split(idx_target, y_target, groups=groups)
+        for train_sub_idx_target, test_sub_idx_target in ss_target:
+            train_idx = np.concatenate(
+                [idx_source, idx_target[train_sub_idx_target]])
+            test_idx = idx_target[test_sub_idx_target]
+            yield train_idx, test_idx
+
+    def get_n_splits(self, X=None, y=None):
+        """Returns the number of splitting iterations in the cross-validator.
+
+        Parameters
+        ----------
+        X : object
+            Ignored, exists for compatibility.
+        y : object
+            Ignored, exists for compatibility.
+
+        Returns
+        -------
+        n_splits : int
+            Returns the number of splitting iterations in the cross-validator.
+        """
+        return self.cv.n_splits
+
+
+class TLClassifier(BaseEstimator):
+    """Transfer learning wrapper for classifiers.
+
+    This is a wrapper for any classifier that converts extended labels used in
+    Transfer Learning into the usual y array to train a classifier of choice.
+
+    Parameters
+    ----------
+    target_domain : str
+        Domain to consider as target.
+    estimator : BaseClassifier
+        The classifier to apply on matrices.
+    domain_weight : None | dict, default=None
+        Weights to combine matrices from each domain to train the classifier.
+        The dict contains key=domain_name and value=weight_to_assign.
+        If None, it uses equal weights.
+
+    Notes
+    -----
+    .. modified:: Pan.LC 2024/6/23
+    """
+    
+    def __init__(self, target_domain, estimator, domain_weight=None):
+        """Init."""
+        self.target_domain = target_domain
+        self.domain_weight = domain_weight
+        self.estimator = estimator
+
+    def fit(self, X, y_enc):
+        """Fit TLClassifier.
+
+        Parameters
+        ----------
+        X : ndarray, shape (n_matrices, n_channels, n_channels)
+            Set of SPD matrices.
+        y_enc : ndarray, shape (n_matrices,)
+            Extended labels for each matrix.
+
+        Returns
+        -------
+        self : TLClassifier instance
+            The TLClassifier instance.
+        """
+        if not is_classifier(self.estimator):
+            raise TypeError('Estimator has to be a classifier.')
+
+        X_dec, y_dec, domains = decode_domains(X, y_enc)
+
+        if self.domain_weight is not None:
+            w = np.zeros(len(X_dec))
+            for d in np.unique(domains):
+                w[domains == d] = self.domain_weight[d]
+        else:
+            w = None
+
+        if isinstance(self.estimator, Pipeline):
+            sample_weight = {}
+            for step in self.estimator.steps:
+                step_name = step[0]
+                if step_name in ['csp_weighted','trcsp_weighted','mdm','fgmdm','tsclassifier',
+                                 'knearestneighbor','meanfield','tangentspace','fgda',
+                                 'tlcenter','tlstretch','tlrotate','mdwm']:
+                    sample_weight[step_name + '__sample_weight'] = w
+            self.estimator.fit(X_dec, y_dec, **sample_weight)
+        else:
+            self.estimator.fit(X_dec, y_dec, sample_weight=w)
+
+        return self
+    
+    def predict(self, X):
+        """Get the predictions.
+
+        Parameters
+        ----------
+        X : ndarray, shape (n_matrices, n_channels, n_channels)
+            Set of SPD matrices.
+
+        Returns
+        -------
+        pred : ndarray, shape (n_matrices,)
+            Predictions for each matrix according to the estimator.
+        """
+        return self.estimator.predict(X)
+
+    def predict_proba(self, X):
+        """Get the probability.
+
+        Parameters
+        ----------
+        X : ndarray, shape (n_matrices, n_channels, n_channels)
+            Set of SPD matrices.
+
+        Returns
+        -------
+        pred : ndarray, shape (n_matrices, n_classes)
+            Predictions for each matrix.
+        """
+        return self.estimator.predict_proba(X)
+
+    def score(self, X, y_enc):
+        """Return the mean accuracy on the given test data and labels.
+
+        Parameters
+        ----------
+        X : ndarray, shape (n_matrices, n_channels, n_channels)
+            Test set of SPD matrices.
+        y_enc : ndarray, shape (n_matrices,)
+            Extended true labels for each matrix.
+
+        Returns
+        -------
+        score : float
+            Mean accuracy of self.predict(X) wrt. y.
+        """
+        _, y_true, _ = decode_domains(X, y_enc)
+        y_pred = self.predict(X)
+        return accuracy_score(y_true, y_pred)

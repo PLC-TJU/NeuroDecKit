@@ -28,6 +28,10 @@ class BandpassFilter(BaseEstimator, TransformerMixin):
         self.order = order
         self.filter_type = filter_type
     
+    def __repr__(self): 
+        return f"BandpassFilter(lowcut={self.lowcut}, highcut={self.highcut}" \
+               f"fs={self.fs}, order={self.order}, filter_type={self.filter_type})"
+     
     def _bandpass_filter(self, data):
         nyquist = 0.5 * self.fs
         low = self.lowcut / nyquist
@@ -43,7 +47,7 @@ class BandpassFilter(BaseEstimator, TransformerMixin):
         # 对数据进行带通滤波
         return filtfilt(b, a, data, axis=-1)
     
-    def fit(self, X, y=None):
+    def fit(self, X, y=None, **fit_params):
         return self
     
     def transform(self, X, y=None):
@@ -68,7 +72,10 @@ class ChannelSelector(BaseEstimator, TransformerMixin):
         """
         self.channels = channels
     
-    def fit(self, X, y=None):
+    def __repr__(self): 
+        return f"ChannelSelector(channels={self.channels})"
+    
+    def fit(self, X, y=None, **fit_params):
         return self
     
     def transform(self, X, y=None):
@@ -87,7 +94,7 @@ class ChannelSelector(BaseEstimator, TransformerMixin):
 
 # 时间窗选择类
 class TimeWindowSelector(BaseEstimator, TransformerMixin):
-    def __init__(self, fs, start, end):
+    def __init__(self, fs, start_time, end_time):
         """
         时间窗选择类
         
@@ -96,11 +103,14 @@ class TimeWindowSelector(BaseEstimator, TransformerMixin):
         end (float): 终止时间。
         fs (float): 采样频率。
         """
-        self.start = start
-        self.end = end
+        self.start_time = start_time
+        self.end_time = end_time
         self.fs = fs
+        
+    def __repr__(self): 
+        return f"TimeWindowSelector(start_time={self.start_time}, end_time={self.end_time}, fs={self.fs})"
     
-    def fit(self, X, y=None):
+    def fit(self, X, y=None, **fit_params):
         return self
     
     def transform(self, X, y=None):
@@ -114,7 +124,7 @@ class TimeWindowSelector(BaseEstimator, TransformerMixin):
         """
         n_points = X.shape[-1]     
         t = np.arange(n_points) / self.fs
-        idx = np.logical_and(t >= self.start, t < self.end)
+        idx = np.logical_and(t >= self.start_time, t < self.end_time)
         
         return X[..., idx]
     
@@ -131,7 +141,10 @@ class Downsample(BaseEstimator, TransformerMixin):
         self.fs_old = fs_old
         self.fs_new = fs_new
     
-    def fit(self, X, y=None):
+    def __repr__(self): 
+        return f"Downsample(fs_old={self.fs_old}, fs_new={self.fs_new})"
+    
+    def fit(self, X, y=None, **fit_params):
         return self
     
     def transform(self, X, y=None):
@@ -162,7 +175,7 @@ class StandardScaler(BaseEstimator, TransformerMixin):
         self.mean = mean
         self.std = std
     
-    def fit(self, X, y=None):
+    def fit(self, X, y=None, **fit_params):
         if self.mean is None:
             self.mean = np.mean(X, axis=0)
         if self.std is None:
@@ -207,7 +220,7 @@ class Smooth(BaseEstimator, TransformerMixin):
     def fit(self, X, y=None):
         return self
     
-    def transform(self, X, y=None):
+    def transform(self, X, y=None, **fit_params):
         """  
         输入：
         X (array-like): 输入信号。 

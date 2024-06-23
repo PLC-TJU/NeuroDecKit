@@ -22,7 +22,7 @@ class Pre_Processing(BaseEstimator, TransformerMixin):
 
     Attributes:
         steps (list): a list of tuples containing the name and the estimator object for each step in the pre-processing pipeline.
-        pipeline_ (Pipeline): the pre-processing pipeline.
+        process (Pipeline): the pre-processing pipeline.
         
         # downsampling parameters
         fs_new (int or None): the new sampling frequency after downsampling.
@@ -79,7 +79,7 @@ class Pre_Processing(BaseEstimator, TransformerMixin):
                  ):
         
         self.steps = []
-        self.pipeline_ = None
+        self.process = None
         self.memory = kwargs.get('memory', None)
         
         # downsampling parameters
@@ -115,7 +115,7 @@ class Pre_Processing(BaseEstimator, TransformerMixin):
         # channel selection
         if self.channels is not None:
             self.steps.append(('channel_selector', ChannelSelector(channels=self.channels)))
-            self.steps.append(('flat_channel_remover', FlatChannelRemover()))
+        self.steps.append(('flat_channel_remover', FlatChannelRemover()))
         # bandpass filter
         if self.lowcut is not None and self.highcut is not None:
             self.steps.append(('bandpass_filter', BandpassFilter(fs=self.fs_new, 
@@ -156,7 +156,7 @@ class Pre_Processing(BaseEstimator, TransformerMixin):
                                                               window_step=self.window_step
                                                               )))
         # initialize the pipeline
-        self.pipeline_ = Pipeline(steps=self.steps, memory=self.memory)
+        self.process = Pipeline(steps=self.steps, memory=self.memory)
         
     def fit(self, X, y=None):
         """
@@ -169,7 +169,7 @@ class Pre_Processing(BaseEstimator, TransformerMixin):
         Returns:
             self (Pre_Processing): the fitted pre-processing pipeline.
         """
-        self.pipeline_.fit(X, y)
+        self.process.fit(X, y)
         return self
     
     def transform(self, X):
@@ -183,5 +183,5 @@ class Pre_Processing(BaseEstimator, TransformerMixin):
             X (ndarray): transformed data. Shape (n_samples, n_channels, n_times)
         """
         
-        return self.pipeline_.transform(X)
+        return self.process.transform(X)
     

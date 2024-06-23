@@ -1,3 +1,5 @@
+# from .ml_classifier import ML_Classifier
+
 from metabci.brainda.algorithms.decomposition import (
     CSP,
     MultiCSP,
@@ -55,21 +57,22 @@ from pyriemann.tangentspace import FGDA
 # from .base import FgMDM_model as FgMDM # lda使用'eigen'求解器
 # from .base import FGDA_model as FGDA
 
-from pyriemann.spatialfilters import CSP as RiemannCSP
+# from pyriemann.spatialfilters import CSP as RiemannCSP
+from .csp import CSP_weighted as RiemannCSP
 from pyriemann.spatialfilters import Xdawn
 
 from pyriemann.tangentspace import TangentSpace as TS
 
 
-from moabb.pipelines.csp import TRCSP
+# from moabb.pipelines.csp import TRCSP
+from .csp import TRCSP_weighted as TRCSP
+
 from moabb.pipelines.utils import FilterBank as FB
 
 from .sblest import SBLEST_model as SBLEST
 
 from .feature_select import MutualInformationSelector as MIBIF
 
-# from .rsf import RSF
-# from .ml_classifier import ML_Classifier
 
 __all__ = [
     'CSP',

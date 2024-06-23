@@ -44,6 +44,11 @@ class TimeWindowDataAugmentation(BaseEstimator, TransformerMixin):
         self.fs = fs
         self.window_width = window_width
         self.window_step = window_step
+    
+    def __repr__(self):
+        return "TimeWindowDataAugmentation(fs={}, window_width={}, window_step={})".format(
+            self.fs, self.window_width, self.window_step
+        )
 
     def fit(self, X, y=None):
         return self
