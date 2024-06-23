@@ -34,8 +34,8 @@ from pyriemann.transfer import TLDummy, TLCenter, TLStretch, TLRotate, MDWM
 from machine_learning import RiemannCSP as CSP
 
 from machine_learning import TRCSP, DCPM, TRCA, SBLEST, TSclassifier
+from .mekt import MEKT
 from .base import encode_datasets, TLClassifier
-
 
 
 __all__ = [
@@ -78,6 +78,7 @@ __all__ = [
     'TLStretch',
     'TLRotate',
     'MDWM',
+    'MEKT',
     'TLClassifier',
     'TRCSP',
     'DCPM',

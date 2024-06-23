@@ -23,3 +23,9 @@ from .info import(
     save_json_file,
     append_to_mat_file,
 )
+
+from .pipe import(
+    ensure_pipeline, 
+    combine_processes,
+    check_pipeline_compatibility,
+)

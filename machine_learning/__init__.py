@@ -73,7 +73,6 @@ from .sblest import SBLEST_model as SBLEST
 
 from .feature_select import MutualInformationSelector as MIBIF
 
-
 __all__ = [
     'CSP',
     'MultiCSP',

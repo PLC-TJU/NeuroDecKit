@@ -10,6 +10,9 @@ from pyriemann.utils.utils import check_weights
 from scipy import linalg
 from pyriemann.spatialfilters import CSP
 from moabb.pipelines.csp import TRCSP
+from metabci.brainda.algorithms.decomposition import FBCSP as FBCSP_metabci
+from utils import generate_intervals, adjust_intervals
+from . import generate_filterbank
 
 class CSP_weighted(CSP):
     def fit(self, X, y, sample_weight=None):
@@ -43,7 +46,6 @@ class CSP_weighted(CSP):
         
         sample_weight = check_weights(sample_weight, len(y))
 
-        n_trials, n_channels, _ = X.shape
         classes = np.unique(y)
         
         # estimate class means
@@ -97,8 +99,20 @@ class CSP_weighted(CSP):
 
 class TRCSP_weighted(TRCSP):
     def fit(self, X, y, sample_weight=None):
-        """Train spatial filters.
+        """Train spatial filters.   
+        
+        Parameters
+        ----------
+        X : ndarray, shape (n_trials, n_channels, n_channels)
+            Set of covariance matrices.
+        y : ndarray, shape (n_trials,)
+            Labels for each trial.
 
+        Returns
+        -------
+        self : TRCSP instance
+            The TRCSP instance.
+        
         Only deals with two class
         """
 
@@ -147,3 +161,43 @@ class TRCSP_weighted(TRCSP):
         self.patterns_ = np.concatenate(patterns, axis=1).T
 
         return self
+
+class FBCSP(FBCSP_metabci):
+    """
+    Filter-Bank CSP (FBCSP) algorithm.
+    """
+    def __init__(self, fs, nfilter=4, banks=None, n_components_select=None):
+        """
+        Parameters
+        ----------
+        fs : float
+            Sampling frequency.
+        nfilter : int
+            Number of CSP filters per bank to extract.
+        bank : list of tuples
+            List of filterbank intervals. default [(4,8), (8,12), ..., (36,40)].
+        n_components_select : int
+            Number of components to select using mutual information. If None,
+            automatically select the number of components based on the cross-validation.
+        """
+        
+        self.fs=fs
+        self.nfilter=nfilter        
+        self.n_components_select=n_components_select
+        
+        
+        self.banks=generate_intervals(4, 4, (4, 40)) if banks is None else banks
+        self.filterbanks = generate_filterbank(self.banks,
+                                          adjust_intervals(self.banks),
+                                          srate=self.fs,
+                                          order=4)
+        
+        super().__init__(
+            n_components=self.nfilter,
+            filterbank=self.filterbanks,
+            n_mutualinfo_components=self.n_components_select,
+            )
+    
+    def __repr__(self):
+        return f"FBCSP(fs={self.fs}, nfilter={self.nfilter}, banks={self.banks}, " \
+               f"n_components_select={self.n_components_select})"

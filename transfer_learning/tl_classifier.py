@@ -7,35 +7,8 @@ License: MIT License
 """
 
 from .utilities import *
-from sklearn.preprocessing import FunctionTransformer
-from collections.abc import Callable
-
-def ensure_pipeline(process):
-    if process is None:
-        return Pipeline(steps=[])
-    if isinstance(process, Pipeline):
-        return process.steps
-    if isinstance(process, BaseEstimator):
-        return make_pipeline(process).steps
-    if isinstance(process, list):
-        if all(isinstance(step, tuple) and len(step) == 2 for step in process):
-            return process
-        else:
-            raise ValueError("The process list should contain tuples of (name, transformer)")
-    if isinstance(process, Callable):
-        return make_pipeline(FunctionTransformer(process)).steps
-    else:
-        raise ValueError("Process should be a sklearn-like estimator, a pipeline, a list of (name, transformer) tuples, or a callable function")
-
-def combine_processes(*processes, memory=None):
-    combined_steps = []
-    for process in processes:
-        steps = ensure_pipeline(process)
-        for name, transformer in steps:
-            # 只添加有效的步骤
-            if not (isinstance(transformer, Pipeline) and len(transformer.steps) == 0):
-                combined_steps.append((name, transformer))
-    return Pipeline(steps=combined_steps, memory=memory)
+from utils import ensure_pipeline, combine_processes
+from utils import check_pipeline_compatibility as check_compatible
 
 class TL_Classifier(BaseEstimator, ClassifierMixin): 
     def __init__(self, dpa_method='noTL', fee_method='CSP', fes_method='MIC-K', clf_method='SVM', 
@@ -80,7 +53,11 @@ class TL_Classifier(BaseEstimator, ClassifierMixin):
         
             # 添加迁移学习框架
             if dpa_method.upper() != 'NOTL':
-                end_est = TLClassifier(target_domain=self.target_domain, estimator=end_est, domain_weight=self.domain_weight)
+                end_est = TLClassifier(
+                    target_domain=self.target_domain, 
+                    estimator=end_est, 
+                    domain_weight=self.domain_weight
+                    )
             
             # 添加域适应器
             self.model = combine_processes(pre_est, dpa, end_est, memory=self.memory)
@@ -118,6 +95,8 @@ class TL_Classifier(BaseEstimator, ClassifierMixin):
         elif dpa.upper() in prealignments.keys():
             # Map the corresponding estimator
             dpa = prealignments[dpa.upper()]
+        elif check_compatible(dpa):
+            pass
         else:
             # raise an error
             raise ValueError(
@@ -127,21 +106,27 @@ class TL_Classifier(BaseEstimator, ClassifierMixin):
     
     def check_fee(self, fee):
         transformers = {
-            'CSP':    CSP(nfilter=self.csp_nfilter, metric='euclid'),
-            'TRCSP':  TRCSP(nfilter=self.csp_nfilter, metric='euclid'), # only for 2 classes
-            'MDM':    MDM(),
-            'MDRM':   MDM(metric='riemann'), # 与MDM相同
-            'MDWM':   MDWM(domain_tradeoff=0.5, target_domain=self.target_domain),# 仅适用于迁移学习
-            'FGMDM':  FgMDM(),
-            'FGMDRM': FgMDM(metric='riemann'), # 与FGMDM相同
-            'TS':     TS(),
-            'FGDA':   FGDA(), 
+            'CSP':    ('csp', CSP(nfilter=self.csp_nfilter, metric='euclid')),
+            'TRCSP':  ('trcsp', TRCSP(nfilter=self.csp_nfilter, metric='euclid')), # only for 2 classes
+            'MDM':    ('mdm', MDM()),
+            'MDRM':   ('mdm', MDM(metric='riemann')), # 与MDM相同
+            'MDWM':   ('mdwm', MDWM(domain_tradeoff=0.5, target_domain=self.target_domain)),# 仅适用于迁移学习
+            'MEKT':   ('mekt', MEKT(target_domain=self.target_domain)), # 仅适用于迁移学习
+            'FGMDM':  ('fgmdm', FgMDM()),
+            'FGMDRM': ('fgmdm', FgMDM(metric='riemann')), # 与FGMDM相同
+            'TS':     ('ts', TS()),
+            'FGDA':   ('fgda', FGDA()), 
         }
         if callable(fee):
             pass
         elif fee.upper() in transformers.keys():
+            if fee.upper() in ['MDWM', 'MEKT'] and self.dpa_method.upper() == 'NOTL':
+                raise ValueError(
+                    """%s is not an valid estimator for NOTL !""" % (fee.upper()))   
             # Map the corresponding estimator
             fee = transformers[fee.upper()]
+        elif check_compatible(fee):
+            pass
         else:
             # raise an error
             raise ValueError(
@@ -168,6 +153,8 @@ class TL_Classifier(BaseEstimator, ClassifierMixin):
         elif fes.upper() in feature_selection.keys():
             # Map the corresponding estimator
             fes = feature_selection[fes.upper()]
+        elif check_compatible(fes):
+            pass
         else:
             # raise an error
             raise ValueError(
@@ -179,23 +166,25 @@ class TL_Classifier(BaseEstimator, ClassifierMixin):
         clf = 'None' if clf is None else clf
         classifiers = {
             'None': Pipeline(steps=[]), # 空分类器
-            'SVM':  SVC(C=1, kernel='linear'),#支持向量机
-            'LDA':  LDA(solver='eigen', shrinkage='auto'), # 线性判别分析
-            'LR':   LR(), # 逻辑回归
-            'KNN':  KNN(n_neighbors=5), # K近邻
-            'DTC':  DTC(min_samples_split=2), # 决策树分类器
-            'RFC':  RFC(n_estimators=100), # 随机森林分类器
-            'ETC':  ETC(n_estimators=100), # 极限随机树分类器
-            'ABC':  ABC(estimator=None, n_estimators=50, algorithm='SAMME'), # AdaBoost分类器
-            'GBC':  GBC(n_estimators=100), # GradientBoosting分类器
-            'GNB':  GNB(), # 高斯朴素贝叶斯分类器
-            'MLP':  MLP(hidden_layer_sizes=(50,), max_iter=1000, alpha=0.0001, solver='adam'), # 多层感知机
+            'SVM':  ('svm', SVC(C=1, kernel='linear')),#支持向量机
+            'LDA':  ('lda', LDA(solver='eigen', shrinkage='auto')), # 线性判别分析
+            'LR':   ('lr', LR()), # 逻辑回归
+            'KNN':  ('knn', KNN(n_neighbors=5)), # K近邻
+            'DTC':  ('dtc', DTC(min_samples_split=2)), # 决策树分类器
+            'RFC':  ('rfc', RFC(n_estimators=100)), # 随机森林分类器
+            'ETC':  ('etc', ETC(n_estimators=100)), # 极限随机树分类器
+            'ABC':  ('abc', ABC(estimator=None, n_estimators=50, algorithm='SAMME')), # AdaBoost分类器
+            'GBC':  ('gbc', GBC(n_estimators=100)), # GradientBoosting分类器
+            'GNB':  ('gnb', GNB()), # 高斯朴素贝叶斯分类器
+            'MLP':  ('mlp', MLP(hidden_layer_sizes=(50,), max_iter=1000, alpha=0.0001, solver='adam')), # 多层感知机
         }
         if callable(clf):
             pass
         elif clf.upper() in classifiers.keys():
             # Map the corresponding estimator
-            clf = classifiers[clf.upper()]       
+            clf = classifiers[clf.upper()]   
+        elif check_compatible(clf):
+            pass
         else:
             # raise an error
             raise ValueError(
@@ -205,15 +194,17 @@ class TL_Classifier(BaseEstimator, ClassifierMixin):
     
     def check_endtoend(self, endtoend):
         endtoends = {
-            'TRCA':      TRCA(n_components=6),
-            'DCPM':      DCPM(n_components=6),
-            'SBLEST':    OneVsRestClassifier(SBLEST(K=2, tau=1, Epoch=5000, epoch_print=0)),
+            'TRCA':   ('trca', TRCA(n_components=6)),
+            'DCPM':   ('dcpm', DCPM(n_components=6)),
+            'SBLEST': ('sblest', OneVsRestClassifier(SBLEST(K=2, tau=1, Epoch=5000, epoch_print=0))),
         }
         if callable(endtoend):
             pass
         elif endtoend.upper() in endtoends.keys():
             # Map the corresponding estimator
             endtoend = endtoends[endtoend.upper()]
+        elif check_compatible(endtoend):
+            pass
         else:
             # raise an error
             raise ValueError(
@@ -223,22 +214,24 @@ class TL_Classifier(BaseEstimator, ClassifierMixin):
     
     def check_end_est(self, est, n_estimators=50, algorithm='SAMME'):
         estimator = {
-            'RKNN':      RKNN(n_neighbors=5, metric='riemann'), 
-            'RKSVM':     RKSVM(C=1, metric='riemann'),
-            'ABC-MDM':   ABC(estimator=MDM(), n_estimators=n_estimators, algorithm=algorithm),
-            'ABC-MDRM':  ABC(estimator=MDM(metric='riemann'), n_estimators=n_estimators, algorithm=algorithm),
-            'ABC-FGMDM': ABC(estimator=FgMDM(), n_estimators=n_estimators, algorithm=algorithm),
-            'ABC-FGMDRM':ABC(estimator=FgMDM(metric='riemann'), n_estimators=n_estimators, algorithm=algorithm),
-            'ABC-TSLDA': ABC(TSclassifier(clf=LDA()), n_estimators=n_estimators, algorithm=algorithm),
-            'ABC-TSLR':  ABC(TSclassifier(clf=LR()), n_estimators=n_estimators, algorithm=algorithm),
-            'ABC-TSGLM': ABC(TSclassifier(clf=LR()), n_estimators=n_estimators, algorithm=algorithm),
-            'ABC-TSSVM': ABC(TSclassifier(clf=SVC()), n_estimators=n_estimators, algorithm=algorithm),
+            'RKNN':       ('rknn', RKNN(n_neighbors=5, metric='riemann')), 
+            'RKSVM':      ('rksvm', RKSVM(C=1, metric='riemann')),
+            'ABC-MDM':    ('abc-mdm', ABC(estimator=MDM(), n_estimators=n_estimators, algorithm=algorithm)),
+            'ABC-MDRM':   ('abc-mdm', ABC(estimator=MDM(metric='riemann'), n_estimators=n_estimators, algorithm=algorithm)),
+            'ABC-FGMDM':  ('abc-fgmdm', ABC(estimator=FgMDM(), n_estimators=n_estimators, algorithm=algorithm)),
+            'ABC-FGMDRM': ('abc-fgmdm', ABC(estimator=FgMDM(metric='riemann'), n_estimators=n_estimators, algorithm=algorithm)),
+            'ABC-TSLDA':  ('abc-tslda', ABC(TSclassifier(clf=LDA()), n_estimators=n_estimators, algorithm=algorithm)),
+            'ABC-TSLR':   ('abc-tsglm', ABC(TSclassifier(clf=LR()), n_estimators=n_estimators, algorithm=algorithm)),
+            'ABC-TSGLM':  ('abc-tsglm', ABC(TSclassifier(clf=LR()), n_estimators=n_estimators, algorithm=algorithm)),
+            'ABC-TSSVM':  ('abc-tssvm', ABC(TSclassifier(clf=SVC()), n_estimators=n_estimators, algorithm=algorithm)),
         }
         if callable(est):
-            est = ABC(estimator=est, n_estimators=n_estimators, algorithm=algorithm)
+            pass
         elif est.upper() in estimator.keys():
             # Map the corresponding estimator
             est = estimator[est.upper()]
+        elif check_compatible(est):
+            pass
         else:
             # raise an error
             raise ValueError(

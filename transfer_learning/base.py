@@ -227,7 +227,7 @@ class TLSplitter():
 
     Notes
     -----
-    .. versionadded:: 0.4
+    .. modified:: Pan.LC 2024/6/23
     """  # noqa
     def __init__(self, target_domain, cv):
 
@@ -345,9 +345,10 @@ class TLClassifier(BaseEstimator):
             sample_weight = {}
             for step in self.estimator.steps:
                 step_name = step[0]
-                if step_name in ['csp_weighted','trcsp_weighted','mdm','fgmdm','tsclassifier',
-                                 'knearestneighbor','meanfield','tangentspace','fgda',
-                                 'tlcenter','tlstretch','tlrotate','mdwm']:
+                if step_name in ['csp','trcsp','mdm','fgmdm','tsclassifier',
+                                 'knearestneighbor','meanfield','ts','fgda',
+                                 'tlcenter','tlstretch','tlrotate','mdwm',
+                                 'mekt','rct','str','rot']:
                     sample_weight[step_name + '__sample_weight'] = w
             self.estimator.fit(X_dec, y_dec, **sample_weight)
         else:
