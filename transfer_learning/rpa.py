@@ -12,13 +12,11 @@ from sklearn.base import BaseEstimator, TransformerMixin
 from joblib import Parallel, delayed
 from transfer_learning.base import decode_domains
 from pyriemann.utils.utils import check_weights
-from pyriemann.utils.mean import mean_riemann
+from pyriemann.utils.mean import mean_riemann, mean_covariance
 from pyriemann.utils.distance import distance
 from pyriemann.utils.base import invsqrtm, sqrtm
 from pyriemann.utils.covariance import covariances
 from pyriemann.transfer._rotate import _get_rotation_matrix
-
-from metabci.brainda.algorithms.manifold import get_recenter, recenter
 
 # recenter
 class RCT(BaseEstimator, TransformerMixin): 
@@ -63,6 +61,19 @@ class RCT(BaseEstimator, TransformerMixin):
         self.target_domain = target_domain
         self.metric = metric
         self.cov_method = cov_method
+    
+    def get_recenter(self, X, sample_weight):
+        X = np.reshape(X, (-1, *X.shape[-2:]))
+        X = X - np.mean(X, axis=-1, keepdims=True)
+        C = covariances(X, estimator=self.cov_method)
+        M = mean_covariance(C, self.metric, sample_weight)
+        self.filters_ = invsqrtm(M)
+        return self.filters_
+    
+    def recenter(self, X, filters_):
+        X = np.reshape(X, (-1, *X.shape[-2:]))
+        X = X - np.mean(X, axis=-1, keepdims=True)
+        return np.einsum('jk,...kl->...jl', filters_, X)
         
     def fit(self, X, y_enc, sample_weight=None):
         """Fit TLCenter.
@@ -90,11 +101,9 @@ class RCT(BaseEstimator, TransformerMixin):
         self.recenter_ = {}
         for d in np.unique(domains):
             idx = domains == d
-            self.recenter_[d] = get_recenter(
+            self.recenter_[d] = self.get_recenter(
                 X[idx], 
-                cov_method=self.cov_method, 
-                mean_method=self.metric, 
-                n_jobs=1
+                sample_weight=sample_weight[idx]
             )
         
         return self
@@ -115,7 +124,7 @@ class RCT(BaseEstimator, TransformerMixin):
             Set of SPD matrices with mean in the Identity.
         """
         # Used during inference, apply recenter from specified target domain.
-        return recenter(X, self.recenter_[self.target_domain])
+        return self.recenter(X, self.recenter_[self.target_domain])
 
     def fit_transform(self, X, y_enc, sample_weight=None):
         """Fit TLCenter and then transform data points.
@@ -149,7 +158,7 @@ class RCT(BaseEstimator, TransformerMixin):
         X_rct = np.zeros_like(X)
         for d in np.unique(domains):
             idx = domains == d
-            X_rct[idx] = recenter(X[idx], self.recenter_[d])
+            X_rct[idx] = self.recenter(X[idx], self.recenter_[d])
         return X_rct
 
 class STR(BaseEstimator, TransformerMixin):

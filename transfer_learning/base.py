@@ -205,7 +205,7 @@ def decode_domains(X_enc, y_enc):
 
 
 
-class TLSplitter():
+class TLSplitter:
     """Class for handling the cross-validation splits of multi-domain data.
 
     This is a wrapper to sklearn's cross-validation iterators [1]_ which
@@ -220,6 +220,11 @@ class TLSplitter():
         Domain considered as target.
     cv : None | BaseCrossValidator | BaseShuffleSplit, default=None
         An instance of a cross validation iterator from sklearn.
+    no_calibration : bool, default=False
+        Whether to use the entire target domain data as the test set.
+        if True, the entire target domain is used as the test set (i.e. 
+        calibration-free), otherwise a random split is done on the target 
+        domain data.
 
     References
     ----------
@@ -228,21 +233,22 @@ class TLSplitter():
     Notes
     -----
     .. modified:: Pan.LC 2024/6/23
-    """  # noqa
-    def __init__(self, target_domain, cv):
+    """
 
+    def __init__(self, target_domain, cv, no_calibration=False):
         self.target_domain = target_domain
         self.cv = cv
+        self.no_calibration = no_calibration
 
     def split(self, X, y, groups=None):
         """Generate indices to split data into training and test set.
 
         Parameters
         ----------
-        X : ndarray, shape (n_matrices, n_channels, n_channels)
-            Set of SPD matrices.
-        y : ndarray, shape (n_matrices,)
-            Extended labels for each matrix.
+        X : ndarray, shape (n_samples, n_channels, n_times)
+            Set of raw signals.
+        y : ndarray, shape (n_samples,)
+            Extended labels for each sample.
 
         Yields
         ------
@@ -252,21 +258,27 @@ class TLSplitter():
             The testing set indices for that split.
         """
 
-        # decode the domains of the data points
+        # Decode the domains of the data points
         X, y, domain = decode_domains(X, y)
 
-        # indentify the indices of the target dataset
+        # Identify the indices of the target dataset
         idx_source = np.where(domain != self.target_domain)[0]
         idx_target = np.where(domain == self.target_domain)[0]
         y_target = y[idx_target]
 
-        # index of training-split for the target data points
-        ss_target = self.cv.split(idx_target, y_target, groups=groups)
-        for train_sub_idx_target, test_sub_idx_target in ss_target:
-            train_idx = np.concatenate(
-                [idx_source, idx_target[train_sub_idx_target]])
-            test_idx = idx_target[test_sub_idx_target]
+        if self.no_calibration:
+            # Use all target domain samples as the test set
+            train_idx = idx_source
+            test_idx = idx_target
             yield train_idx, test_idx
+        else:
+            # Index of training-split for the target data points
+            ss_target = self.cv.split(idx_target, y_target, groups=groups)
+            for train_sub_idx_target, test_sub_idx_target in ss_target:
+                train_idx = np.concatenate(
+                    [idx_source, idx_target[train_sub_idx_target]])
+                test_idx = idx_target[test_sub_idx_target]
+                yield train_idx, test_idx
 
     def get_n_splits(self, X=None, y=None):
         """Returns the number of splitting iterations in the cross-validator.
@@ -283,7 +295,11 @@ class TLSplitter():
         n_splits : int
             Returns the number of splitting iterations in the cross-validator.
         """
-        return self.cv.n_splits
+        if self.no_calibration:
+            return 1
+        else:
+            return self.cv.get_n_splits(X, y)
+
 
 
 class TLClassifier(BaseEstimator):
