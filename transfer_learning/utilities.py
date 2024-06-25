@@ -36,7 +36,7 @@ from machine_learning import RiemannCSP as CSP
 from machine_learning import TRCSP, DCPM, TRCA, SBLEST, TSclassifier
 from .mekt import MEKT
 from .base import encode_datasets, TLClassifier
-
+from .rpa import RCT, STR, ROT
 
 __all__ = [
     'BaseEstimator',
@@ -77,6 +77,9 @@ __all__ = [
     'TLCenter',
     'TLStretch',
     'TLRotate',
+    'RCT',
+    'STR',
+    'ROT',
     'MDWM',
     'MEKT',
     'TLClassifier',

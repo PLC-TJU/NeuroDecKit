@@ -1,7 +1,9 @@
 # This file is used to load the dataset and preprocess the data. 
 # Authors: Pan.LC <panlincong@tju.edu.cn>
 # Date: 2024/4/7
-# License: MIT License
+
+# more datasets: https://github.com/NeuroTechX/moabb/tree/master/moabb/datasets
+# dataset information: https://neurotechx.github.io/moabb/dataset_summary.html
 
 # Pan et al. 对moabb库进行了一些可有可无的调整,用于灵活的修改数据集的保存地址,但这是不必要的。
 # 可以使用原版moabb库和pan2023.py文件中的函数来加载Pan2023数据集。
@@ -19,7 +21,8 @@ from moabb.datasets import (BNCI2014_001,
                             Zhou2016,
                             GrosseWentrup2009,
                             Lee2019_MI,
-                            Shin2017A,)
+                            Shin2017A,
+                            )
 
 from .pan2023 import Pan2023
 import numpy as np
@@ -166,14 +169,14 @@ class Dataset_MI:
             raise ValueError("Invalid subject numbers were entered!")
 
         # 获取数据
-        x, y, _ = self.paradigm.get_data(dataset=self.dataset, subjects=subjects)
+        x, y, info = self.paradigm.get_data(dataset=self.dataset, subjects=subjects)
         
         # 由于浮点数问题，可能会出现数据长度超出预期1个时间点，因此需要减去多余的点
         data = x[:, :, :-(x.shape[2] % self.fs)] if x.shape[2] % self.fs else x
         
         self.events, label = np.unique(y, return_inverse=True)
         
-        return data, label
+        return data, label, info
 
 class Dataset_Left_Right_MI(Dataset_MI):
     def __init__(self, dataset_name, fs=None, **kwargs):

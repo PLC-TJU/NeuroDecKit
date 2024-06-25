@@ -130,7 +130,7 @@ class Pre_Processing(BaseEstimator, TransformerMixin):
                 self.steps.append(('channel_selector', RiemannChannelSelector(nelec=self.nelec)))
             elif self.cs_method == 'csp-cs':
                 self.steps.append(('channel_selector', CSPChannelSelector(nelec=self.nelec)))  
-            elif self.cs_method == 'default-rsf':
+            elif self.cs_method in ['default-rsf', 'rsf']:
                 self.steps.append(('spatial_filter', RSF(dim=self.nelec, method='default')))
             elif self.cs_method == 'csp-rsf':
                 self.steps.append(('spatial_filter', RSF(dim=self.nelec, method='csp')))

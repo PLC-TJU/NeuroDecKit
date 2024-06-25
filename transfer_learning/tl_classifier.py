@@ -36,7 +36,10 @@ class TL_Classifier(BaseEstimator, ClassifierMixin):
         pre_est = self.check_pre_est(self.pre_est)
         
         # 域适应器
-        dpa = self.check_dpa(self.dpa_method)
+        if 'RAW-' in self.dpa_method:
+            dpa = self.check_raw_dpa(self.dpa_method.split('-')[-1])
+        else:
+            dpa = self.check_dpa(self.dpa_method)
         
         # 末端分类器
         if self.endtoend is not None:
@@ -88,7 +91,7 @@ class TL_Classifier(BaseEstimator, ClassifierMixin):
                     centered_data=True,
                 ),
                 TLRotate(target_domain=self.target_domain, metric='euclid'),
-            )
+            ),
         }
         if callable(dpa):
             pass
@@ -102,7 +105,43 @@ class TL_Classifier(BaseEstimator, ClassifierMixin):
             raise ValueError(
                 """%s is not an valid estimator ! Valid estimators are : %s or a
                 callable function""" % (dpa, (' , ').join(prealignments.keys())))
-        return dpa      
+        return dpa     
+    
+    def check_raw_dpa(self, dpa):
+        prealignments = {
+            'NOTL': [],
+            'TLDUMMY': make_pipeline(
+                TLDummy(),
+            ),
+            'EA': make_pipeline(
+                RCT(target_domain=self.target_domain, metric='euclid'),
+            ),
+            'RA': make_pipeline(
+                RCT(target_domain=self.target_domain, metric='riemann'),
+            ),
+            'RPA': make_pipeline(
+                RCT(target_domain=self.target_domain),
+                STR(
+                    target_domain=self.target_domain,
+                    final_dispersion=1,
+                    centered_data=True,
+                ),
+                ROT(target_domain=self.target_domain, metric='euclid'),
+            ),
+        }
+        if callable(dpa):
+            pass
+        elif dpa.upper() in prealignments.keys():
+            # Map the corresponding estimator
+            dpa = prealignments[dpa.upper()]
+        elif check_compatible(dpa):
+            pass
+        else:
+            # raise an error
+            raise ValueError(
+                """%s is not an valid estimator ! Valid estimators are : %s or a
+                callable function""" % (dpa, (' , ').join(prealignments.keys())))
+        return dpa  
     
     def check_fee(self, fee):
         transformers = {

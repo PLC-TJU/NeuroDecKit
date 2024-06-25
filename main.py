@@ -1,6 +1,7 @@
 import numpy as np
 from joblib import Memory
-from sklearn.model_selection import RepeatedStratifiedKFold, cross_val_score
+from sklearn.model_selection import RepeatedStratifiedKFold, StratifiedShuffleSplit
+from moabb.evaluations import WithinSessionEvaluation, CrossSessionEvaluation, CrossSubjectEvaluation
 
 from pre_processing.preprocessing import Pre_Processing
 from transfer_learning.tl_classifier import TL_Classifier
@@ -48,18 +49,13 @@ cv = RepeatedStratifiedKFold(n_splits=5, n_repeats=5, random_state=42)
 tl_cv = TLSplitter(target_domain=domain[0], cv=cv)
 
 #%%
-# acc = []
-# for train, test in tl_cv.split(X, y_enc):
-#     X_train, y_train = X[train], y_enc[train]
-#     X_test, y_test = X[test], y_enc[test]
-#     Model.fit(X_train, y_train)
-#     score = Model.score(X_test, y_test)
-#     acc.append(score)
-#     print("Score: %0.2f" % score)
-# print("Accuracy: %0.2f (+/- %0.2f)" % (np.mean(acc), np.std(acc)))
+acc = []
+for train, test in tl_cv.split(X, y_enc):
+    X_train, y_train = X[train], y_enc[train]
+    X_test, y_test = X[test], y_enc[test]
+    Model.fit(X_train, y_train)
+    score = Model.score(X_test, y_test)
+    acc.append(score)
+    print("Score: %0.2f" % score)
+print("Accuracy: %0.2f (+/- %0.2f)" % (np.mean(acc), np.std(acc)))
 
-#%%
-scores = cross_val_score(Model, X, y_enc, cv=tl_cv, n_jobs=15)
-print("Accuracy: %0.2f (+/- %0.2f)" % (scores.mean(), scores.std()))
-
-# %%
