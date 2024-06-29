@@ -10,6 +10,8 @@ from sklearn.base import BaseEstimator, is_classifier
 from sklearn.pipeline import Pipeline
 from sklearn.metrics import accuracy_score
 
+from inspect import signature
+
 def _combine_datasets(Xt: ndarray, yt: ndarray, Xs: Optional[Union[ndarray, List[ndarray]]] = None, ys: 
     Optional[Union[ndarray, List[ndarray]]] = None) -> (List[ndarray], List[ndarray]): # type: ignore
     """
@@ -196,6 +198,9 @@ def decode_domains(X_enc, y_enc):
     .. versionadded:: 0.4
     """
     y, domain = [], []
+    if '/' not in y_enc[0]:
+        return X_enc, y_enc, np.array(['S1' for _ in range(len(y_enc))])
+    
     for y_enc_ in y_enc:
         y_dec_ = y_enc_.split('/')
         domain.append(y_dec_[-2])
@@ -300,7 +305,13 @@ class TLSplitter:
         else:
             return self.cv.get_n_splits(X, y)
 
-
+def chesk_sample_weight(clf):
+    if isinstance(clf, Pipeline):
+        return chesk_sample_weight(clf.steps[-1][1])
+    else:
+        fit_method = getattr(clf, 'fit')
+        params = signature(fit_method).parameters
+        return 'sample_weight' in params
 
 class TLClassifier(BaseEstimator):
     """Transfer learning wrapper for classifiers.
@@ -314,6 +325,11 @@ class TLClassifier(BaseEstimator):
         Domain to consider as target.
     estimator : BaseClassifier
         The classifier to apply on matrices.
+    tl_mode : str, default='tl'
+        The transfer learning model to use.
+        'TL' : Transfer Learning (default) - train the classifier on the source and target domain data.
+        'NOTL' : No Transfer Learning, i.e. train the classifier on the target domain data only.
+        'CALIBRATION-FREE' : Calibration-Free Transfer Learning, i.e. train the classifier on the source domain data only.
     domain_weight : None | dict, default=None
         Weights to combine matrices from each domain to train the classifier.
         The dict contains key=domain_name and value=weight_to_assign.
@@ -324,11 +340,15 @@ class TLClassifier(BaseEstimator):
     .. modified:: Pan.LC 2024/6/23
     """
     
-    def __init__(self, target_domain, estimator, domain_weight=None):
+    def __init__(self, target_domain, estimator, tl_mode='tl', domain_weight=None):
         """Init."""
         self.target_domain = target_domain
+        self.tl_mode = tl_mode
         self.domain_weight = domain_weight
         self.estimator = estimator
+        
+        if not is_classifier(self.estimator):
+            raise TypeError('Estimator has to be a classifier.')
 
     def fit(self, X, y_enc):
         """Fit TLClassifier.
@@ -345,30 +365,52 @@ class TLClassifier(BaseEstimator):
         self : TLClassifier instance
             The TLClassifier instance.
         """
-        if not is_classifier(self.estimator):
-            raise TypeError('Estimator has to be a classifier.')
 
         X_dec, y_dec, domains = decode_domains(X, y_enc)
 
-        if self.domain_weight is not None:
+        if self.tl_mode.upper() == 'TL':
+            if self.domain_weight is not None:
+                w = np.zeros(len(X_dec))
+                for d in np.unique(domains):
+                    w[domains == d] = self.domain_weight[d]
+            else:
+                w = None
+        elif self.tl_mode.upper() == 'NOTL':
             w = np.zeros(len(X_dec))
-            for d in np.unique(domains):
-                w[domains == d] = self.domain_weight[d]
+            w[domains == self.target_domain] = 1
+        elif self.tl_mode.upper() == 'CALIBRATION-FREE':
+            w = np.ones(len(X_dec))
+            if self.domain_weight is not None:
+                for d in np.unique(domains):
+                    w[domains == d] = self.domain_weight[d] 
+            w[domains == self.target_domain] = 0
         else:
-            w = None
+            raise ValueError('tl_model should be either "TL", "NOTL" or "CALIBRATION-FREE".')
 
+        # check if there are samples to train the model
+        if w is not None and w.size == 0:
+            raise ValueError('No samples to train the model.')
+        
+        # Excluding samples with a weight of 0
+        X_dec = X_dec[w != 0] if w is not None else X_dec
+        y_dec = y_dec[w != 0] if w is not None else y_dec
+        w = w[w != 0] if w is not None else w
+        
+        # Fit the estimator
         if isinstance(self.estimator, Pipeline):
             sample_weight = {}
             for step in self.estimator.steps:
                 step_name = step[0]
-                if step_name in ['csp','trcsp','mdm','fgmdm','tsclassifier',
-                                 'knearestneighbor','meanfield','ts','fgda',
-                                 'tlcenter','tlstretch','tlrotate','mdwm',
-                                 'mekt','rct','str','rot']:
+                step_pipe = step[1]
+                if chesk_sample_weight(step_pipe):
                     sample_weight[step_name + '__sample_weight'] = w
+
             self.estimator.fit(X_dec, y_dec, **sample_weight)
         else:
-            self.estimator.fit(X_dec, y_dec, sample_weight=w)
+            if chesk_sample_weight(self.estimator):         
+                self.estimator.fit(X_dec, y_dec, sample_weight=w)
+            else:
+                self.estimator.fit(X_dec, y_dec)
 
         return self
     

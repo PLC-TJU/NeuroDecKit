@@ -4,14 +4,16 @@
 
 from sklearn.base import BaseEstimator, ClassifierMixin
 from sklearn.base import clone
+from sklearn.metrics import accuracy_score
 from sklearn.pipeline import make_pipeline, Pipeline
 from sklearn.multiclass import OneVsRestClassifier
 
 from sklearn.feature_selection import SelectKBest, SelectPercentile, f_classif, mutual_info_classif
 from sklearn.decomposition import PCA
-from sklearn.linear_model import Lasso # Lasso 回归, L1 正则化
+# from sklearn.linear_model import Lasso # Lasso 回归, L1 正则化
 from sklearn.feature_selection import RFE # 递归特征消除
 from sklearn.feature_selection import RFECV # 递归特征消除(结合交叉验证自动选择最佳特征数量)
+from machine_learning import LassoSelector as Lasso # 序列特征选择
 
 from sklearn.svm import SVC
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis as LDA
@@ -26,66 +28,48 @@ from sklearn.naive_bayes import GaussianNB as GNB # 高斯朴素贝叶斯
 from sklearn.neural_network import MLPClassifier as MLP # 多层感知机
 
 from pyriemann.estimation import Covariances
-from pyriemann.tangentspace import TangentSpace as TS, FGDA
-from pyriemann.classification import MDM, FgMDM
+from pyriemann.classification import MDM
 from pyriemann.classification import KNearestNeighbor as RKNN
 from pyriemann.classification import SVC as RKSVM
-from pyriemann.transfer import TLDummy, TLCenter, TLStretch, TLRotate, MDWM
-from machine_learning import RiemannCSP as CSP
+from pyriemann.transfer import TLDummy, TLStretch, TLRotate, MDWM
 
-from machine_learning import TRCSP, DCPM, TRCA, SBLEST, TSclassifier
+from machine_learning import RiemannCSP as CSP
+from machine_learning import TRCSP, DCPM, TRCA, SBLEST, TSclassifier, TS, FGDA, FgMDM
 from .mekt import MEKT
-from .base import encode_datasets, TLClassifier
+from .base import decode_domains, encode_datasets, TLClassifier
 from .rpa import RCT, STR, ROT
+from .rpa import TLCenter_online as TLCenter
 
 __all__ = [
-    'BaseEstimator',
-    'ClassifierMixin',
-    'clone',
-    'make_pipeline',
-    'Pipeline',
-    'OneVsRestClassifier',
-    'encode_datasets',
-    'SelectKBest',
-    'SelectPercentile',
-    'f_classif',
-    'mutual_info_classif',
-    'PCA',
-    'Lasso',
-    'RFE',
-    'RFECV',
-    'SVC',
-    'LDA',
-    'LR',
-    'KNN',
-    'DTC',
-    'RFC',
-    'ETC',
-    'ABC',
-    'GBC',
-    'GNB',
-    'MLP',
-    'Covariances',
-    'TS',
-    'FGDA',
-    'CSP',
-    'MDM',
-    'FgMDM',
-    'RKNN',
-    'RKSVM',
-    'TLDummy',
-    'TLCenter',
-    'TLStretch',
-    'TLRotate',
-    'RCT',
-    'STR',
-    'ROT',
-    'MDWM',
-    'MEKT',
-    'TLClassifier',
-    'TRCSP',
-    'DCPM',
-    'TRCA',
-    'SBLEST',
-    'TSclassifier'
+    'BaseEstimator', 'ClassifierMixin', 'clone', 'accuracy_score',
+    'make_pipeline', 'Pipeline', 'OneVsRestClassifier', 'SelectKBest',
+    'SelectPercentile', 'f_classif','mutual_info_classif', 'PCA', 'Lasso',
+    'RFE', 'RFECV', 'SVC', 'LDA', 'LR', 'KNN', 'DTC', 'RFC', 'ETC', 'ABC',
+    'GBC', 'GNB', 'MLP', 'Covariances', 'TS', 'FGDA', 'MDM', 'FgMDM', 'RKNN',
+    'RKSVM', 'TLDummy', 'TLCenter', 'TLStretch', 'TLRotate', 'MDWM', 'CSP',
+    'TRCSP', 'DCPM', 'TRCA', 'SBLEST', 'TSclassifier', 'MEKT', 'RCT', 'STR',
+    'ROT', 'decode_domains', 'encode_datasets', 'TLClassifier',
 ]
+
+
+    
+from utils import extract_dict_keys
+
+def estimator_list():
+    DPA_Methods = extract_dict_keys('transfer_learning.tl_classifier', 'TL_Classifier', 'check_dpa', 'prealignments')
+    FEE_Methods = extract_dict_keys('transfer_learning.tl_classifier', 'TL_Classifier', 'check_fee', 'feature_extractions')
+    FES_Methods = extract_dict_keys('transfer_learning.tl_classifier', 'TL_Classifier', 'check_fes', 'feature_selections')
+    CLF_Methods = extract_dict_keys('transfer_learning.tl_classifier', 'TL_Classifier', 'check_clf', 'classifiers')
+    END_Methods = extract_dict_keys('transfer_learning.tl_classifier', 'TL_Classifier', 'check_endest', 'estimators')
+    END_TO_END_Methods = extract_dict_keys('transfer_learning.tl_classifier', 'TL_Classifier', 'check_endtoend', 'endtoends')
+    
+    DPA_Methods = [None if item == 'NONE' else item for item in DPA_Methods]
+    FEE_Methods = [None if item == 'NONE' else item for item in FEE_Methods]
+    FES_Methods = [None if item == 'NONE' else item for item in FES_Methods]
+    CLF_Methods = [None if item == 'NONE' else item for item in CLF_Methods]
+    END_Methods = [None if item == 'NONE' else item for item in END_Methods]
+    END_TO_END_Methods = [None if item == 'NONE' else item for item in END_TO_END_Methods]
+    
+    return DPA_Methods, FEE_Methods, FES_Methods, CLF_Methods, END_Methods, END_TO_END_Methods
+
+

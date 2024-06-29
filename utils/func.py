@@ -7,6 +7,7 @@ from scipy.signal import iircomb, iirnotch, butter, filtfilt, resample
 import pynvml
 import psutil
 import subprocess
+import inspect
 
 def load_mat(filename):
     # 输入是一个字符串，表示mat文件的路径
@@ -524,5 +525,116 @@ def generate_requirements(project_path=None, output_path=None):
         print("错误详情：", e.stderr.decode('utf-8'))  # 打印详细的错误信息
         
 
+# 定义一个函数，用于提取类中所有字典的键值
+import inspect
+import ast
+import textwrap
+import importlib
 
+def extract_dict_keys(module_name, class_name, func_name, dict_name):
+    """
+    提取类中指定函数的指定字典的键值。
 
+    参数:
+    - module_name: str, 模块名。
+    - class_name: str, 类名。
+    - func_name: str, 函数名。
+    - dict_name: str, 字典名。
+
+    返回:
+    - list of str, 字典的键值列表。
+
+    使用说明:
+    - 调用函数时，需要指定类名、函数名和字典名。
+    - 函数会在类中查找指定函数，并在函数中查找指定字典的定义。
+    - 函数会返回指定字典的键值列表。
+    - 如果类、函数或字典不存在，函数会抛出ValueError。
+    
+    示例:      
+    ```python
+    my_module.py:
+    class MyClass:
+        def func_name(self):
+            dict_name = {'key1': 1, 'key2': 2, 'key3': 3}
+            return dict_name
+    
+    keys = extract_dict_keys('my_module', 'MyClass', 'func_name', 'dict_name')
+    print(keys)  # ['key1', 'key2', 'key3']
+    ```
+    """
+    # 导入模块
+    module = importlib.import_module(module_name)
+    
+    # 获取类对象
+    cls = getattr(module, class_name, None)
+    if cls is None:
+        raise ValueError(f"Class '{class_name}' not found in module '{module_name}'.")
+
+    # 获取函数对象
+    func = getattr(cls, func_name, None)
+    if func is None:
+        raise ValueError(f"Function '{func_name}' not found in class '{class_name}'.")
+
+    # 获取函数的源代码
+    source = inspect.getsource(func)
+    
+    # 处理缩进
+    source = textwrap.dedent(source)
+    
+    # 解析源代码为AST
+    tree = ast.parse(source)
+    
+    # 查找指定字典的定义
+    class DictVisitor(ast.NodeVisitor):
+        def __init__(self):
+            self.keys = []
+        
+        def visit_Assign(self, node):
+            for target in node.targets:
+                if isinstance(target, ast.Name) and target.id == dict_name:
+                    if isinstance(node.value, ast.Dict):
+                        self.keys = [k.s for k in node.value.keys if isinstance(k, ast.Str)]
+            self.generic_visit(node)
+    
+    visitor = DictVisitor()
+    visitor.visit(tree)
+    
+    return visitor.keys
+
+# 定义一个函数，用于展开X和y，使X变成标准的三维样本:样本数*通道数*时间点数
+def check_sample_dims(X, y):
+    """
+    展开X和y，使X变成标准的三维样本（不同通道成分数目*不同时间窗成分数目*多个频带成分数目*样本数）*通道数*时间点数
+    并且扩展y以匹配新的样本维度。
+
+    Parameters:
+    X (np.ndarray): 输入数据，维度为(不同通道成分, 不同时间窗成分, 多个频带成分, ..., 样本数, 通道数, 时间点数)
+    y (np.ndarray): 标签数据，维度为(样本数, 1)
+
+    Returns:
+    tuple: (新的X, 新的y)
+        - 新的X: 维度为(新的样本数, 通道数, 时间点数)
+        - 新的y: 维度为(新的样本数, 1)
+    """
+    # 获取输入X的维度
+    input_shape = X.shape
+    
+    # 检查输入X的维度是否正确
+    if len(input_shape) < 3:
+        raise ValueError("输入X的维度不正确，至少需要3维。")
+    elif  len(input_shape) == 3:  # 输入X的维度为(样本数, 通道数, 时间点数)
+        return X, y
+
+    # 样本数、通道数、时间点数
+    sample_count, channel_count, time_point_count = input_shape[-3], input_shape[-2], input_shape[-1]
+
+    # 计算新的样本数
+    new_sample_count = np.prod(input_shape[:-3]) * sample_count
+
+    # 重塑X
+    new_X = X.reshape((new_sample_count, channel_count, time_point_count))
+
+    # 扩展y
+    new_y = np.repeat(y, np.prod(input_shape[:-3]), axis=0)
+
+    return new_X, new_y

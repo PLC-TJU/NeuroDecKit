@@ -32,22 +32,25 @@ class BandpassFilter(BaseEstimator, TransformerMixin):
         return f"BandpassFilter(lowcut={self.lowcut}, highcut={self.highcut}" \
                f"fs={self.fs}, order={self.order}, filter_type={self.filter_type})"
      
-    def _bandpass_filter(self, data):
+    def _get_filter_coeff(self):
         nyquist = 0.5 * self.fs
         low = self.lowcut / nyquist
         high = self.highcut / nyquist
         
         if self.filter_type == 'butter':
-            b, a = butter(self.order, [low, high], btype='band')
+            self.b, self.a = butter(self.order, [low, high], btype='band')
         elif self.filter_type == 'cheby1':
-            b, a = cheby1(self.order, 0.5, [low, high], btype='band')
+            self.b, self.a = cheby1(self.order, 0.5, [low, high], btype='band')
         else:
-            raise ValueError("filter_type must be 'butter' or 'cheby1'")
+            raise ValueError("filter_type must be 'butter' or 'cheby1'")    
         
-        # 对数据进行带通滤波
-        return filtfilt(b, a, data, axis=-1)
-    
-    def fit(self, X, y=None, **fit_params):
+        
+    def _bandpass_filter(self, data):  
+
+        return filtfilt(self.b, self.a, data, axis=-1)
+        
+    def fit(self, X, y=None, **fit_params): 
+        self._get_filter_coeff()
         return self
     
     def transform(self, X, y=None):
@@ -94,7 +97,7 @@ class ChannelSelector(BaseEstimator, TransformerMixin):
 
 # 时间窗选择类
 class TimeWindowSelector(BaseEstimator, TransformerMixin):
-    def __init__(self, fs, start_time, end_time):
+    def __init__(self, fs, start_time, end_time, **kwargs):
         """
         时间窗选择类
         
@@ -102,10 +105,14 @@ class TimeWindowSelector(BaseEstimator, TransformerMixin):
         start (float): 起始时间。
         end (float): 终止时间。
         fs (float): 采样频率。
+        
+        可选参数:
+        twda_flag (bool): 是否已经执行了滑动时间窗数据扩充。默认值为False。
         """
         self.start_time = start_time
         self.end_time = end_time
         self.fs = fs
+        self.twda_flag = kwargs.get('twda_flag', False)
         
     def __repr__(self): 
         return f"TimeWindowSelector(start_time={self.start_time}, end_time={self.end_time}, fs={self.fs})"
@@ -127,6 +134,22 @@ class TimeWindowSelector(BaseEstimator, TransformerMixin):
         idx = np.logical_and(t >= self.start_time, t < self.end_time)
         
         return X[..., idx]
+    
+    def fit_transform(self, X, y=None, **fit_params):     
+        """  
+        .. note::
+           This method is designed for using at training time. The output for
+           .fit_transform() may be different than using .fit() and
+           .transform() separately.
+        
+        输入：
+        X (array-like): 输入信号。 
+        shape=(n_trials, n_channels, n_samples) or (n_channels, n_samples)
+        
+        输出：
+        array-like: 选择的时间窗信号。
+        """
+        return X if self.twda_flag else self.transform(X, y)
     
 # 重采样类
 class Downsample(BaseEstimator, TransformerMixin):

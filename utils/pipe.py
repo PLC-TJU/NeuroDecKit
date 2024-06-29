@@ -49,8 +49,9 @@ def ensure_pipeline(process: Union[Pipeline, BaseEstimator, List, Callable, None
     if isinstance(process, Callable):
         return make_pipeline(FunctionTransformer(process)).steps
     else:
-        raise ValueError("Process should be a sklearn-like estimator, a pipeline, \
-                         a list of (name, transformer) tuples, a single (name, transformer) tuple, or a callable function")
+        raise ValueError("""%s Process should be a sklearn-like estimator, a pipeline, \
+                         a list of (name, transformer) tuples, a single (name, transformer) tuple, \
+                         or a callable function""" % type(process))
 
 
 def combine_processes(*processes, memory=None):

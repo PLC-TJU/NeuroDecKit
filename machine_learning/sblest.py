@@ -109,7 +109,7 @@ def SBLEST(X, Y, K, tau, Epoch=5000, epoch_print=100, device='cpu'):
             # print('EXIT: Change in loss below threshold')
             break
         Loss_old = Loss.cpu().numpy()
-        if epoch_print != 0 or epoch_print is not None:
+        if epoch_print != 0 and epoch_print is not None:
             if i % epoch_print == 99:
                 print('Iterations: ', str(i+1), '  lambda: ', str(lambda_noise.cpu().numpy()), '  Loss: ', float(Loss.cpu().numpy()),
                     '  Delta_Loss: ', float(delta_loss))
@@ -285,4 +285,17 @@ class SBLEST_model(BaseEstimator, ClassifierMixin):
         predict_Y = R_test @ vec_W
         predict_Y = predict_Y.to('cpu') if predict_Y.is_cuda else predict_Y
         return np.where(predict_Y > 0, self.classes_[0], self.classes_[1])
+    
+    def decision_function(self, X):
+        if self.W is None:
+            raise ValueError("Model is not trained yet. Please call 'fit' with appropriate arguments before calling 'decision_function'.")
+        R_test = self.transform(X)
+        vec_W = self.W.T.flatten()
+        predict_Y = R_test @ vec_W
+        predict_Y = predict_Y.to('cpu') if predict_Y.is_cuda else predict_Y
+        return -predict_Y.numpy()
+    
+    def score(self, X, Y):
+        Y_pred = self.predict(X)
+        return np.mean(Y_pred == Y)
     

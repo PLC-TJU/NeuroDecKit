@@ -3,20 +3,22 @@ modified from metabci.brainda.algorithms.transfer_learning.mekt.py
 by LC.Pan at 2024-06-23
 """
 import numpy as np
-from sklearn.base import BaseEstimator, TransformerMixin
+from sklearn.base import BaseEstimator, ClassifierMixin, TransformerMixin
+from sklearn.metrics import accuracy_score
+from sklearn.discriminant_analysis import LinearDiscriminantAnalysis as LDA
 from metabci.brainda.algorithms.transfer_learning.mekt import mekt_kernel
-from pyriemann.utils.covariance import covariances
 from pyriemann.utils import mean_covariance
 from pyriemann.utils.base import invsqrtm
 from pyriemann.utils.tangentspace import tangent_space
+from pyriemann.utils.utils import check_weights
 from transfer_learning import decode_domains
 
-def mekt_feature(X, covariance_type, sample_weight=None, metric='riemann'):
+def mekt_feature(X, sample_weight=None, metric='riemann'):
     """Covariance Matrix Centroid Alignment and Tangent Space Feature Extraction.
        Parameters
     ----------
     X : ndarray
-        EEG data, shape (n_trials, n_channels, n_times)
+        EEG data, shape (n_trials, n_channels, n_channels)
 
     Returns
     -------
@@ -24,8 +26,7 @@ def mekt_feature(X, covariance_type, sample_weight=None, metric='riemann'):
         feature of X, shape (n_trials, n_feature)
 
     """
-    # Covariance Matrix Estimation
-    X = covariances(X, estimator=covariance_type)
+
     # Covariance Matrix Centroid Alignment
     M = mean_covariance(X, metric=metric, sample_weight=sample_weight)
     iM12 = invsqrtm(M)
@@ -35,7 +36,7 @@ def mekt_feature(X, covariance_type, sample_weight=None, metric='riemann'):
 
     return feature
 
-class MEKT(BaseEstimator, TransformerMixin):
+class MEKT(BaseEstimator, ClassifierMixin): #有监督的迁移学习方法
     """
     Manifold Embedded Knowledge Transfer(MEKT) [1]_.
 
@@ -54,11 +55,13 @@ class MEKT(BaseEstimator, TransformerMixin):
          - add decode_domains function to decode source and target domains
          - add sample_weight parameter to mekt_feature method
          - add metric parameter to mekt_feature method
+         - change X shape to (n_trials, n_channels, n_channels) in fit and fit_transform methods
+         - add estimator parameter to MEKT class to make it compatible with sklearn API
 
     Parameters
     ----------
     subspace_dim: int
-        Selected projection vector, by default 10.
+        Maximum number of selected projection vectors, by default 10.
     max_iter: int
         max iterations, by default 5.
     alpha: float
@@ -119,8 +122,9 @@ class MEKT(BaseEstimator, TransformerMixin):
         rho: float = 20,
         k: int = 10,
         t: int = 1,
-        covariance_type="lwf",
         metric="riemann",
+        selector=None,
+        estimator=LDA(solver='lsqr', shrinkage='auto'),
     ):
         self.target_domain = target_domain
         self.subspace_dim = subspace_dim
@@ -130,8 +134,9 @@ class MEKT(BaseEstimator, TransformerMixin):
         self.rho = rho
         self.k = k
         self.t = t
-        self.covariance_type = covariance_type
         self.metric = metric
+        self.selector = selector
+        self.estimator = estimator
         self.A_ = None
         self.B_ = None
     
@@ -141,7 +146,7 @@ class MEKT(BaseEstimator, TransformerMixin):
         Parameters
         ----------
         X: ndarray
-            EEG data, shape(n_trials, n_channels, n_times).
+            EEG data, shape(n_trials, n_channels, n_channels).
 
         Returns
         -------
@@ -149,8 +154,12 @@ class MEKT(BaseEstimator, TransformerMixin):
             target domain features, shape(n_trials, n_features).
 
         """
-        feature = mekt_feature(X, self.covariance_type, metric=self.metric)
+        feature = mekt_feature(X, metric=self.metric)
         target_features = feature @ self.B_
+        
+        if self.selector is not None:
+            target_features = self.selector.transform(target_features)
+        
         return target_features
 
     def fit_transform(self, X, y_enc, sample_weight=None):
@@ -159,7 +168,7 @@ class MEKT(BaseEstimator, TransformerMixin):
         Parameters
         ----------
         X: ndarray
-            EEG data, shape(n_trials, n_channels, n_times).
+            EEG data, shape(n_trials, n_channels, n_channels).
         y_enc: ndarray
             Label, shape(n_trials,).
         sample_weight: ndarray
@@ -172,6 +181,7 @@ class MEKT(BaseEstimator, TransformerMixin):
 
         """
         X, y, domains = decode_domains(X, y_enc)
+        sample_weight = check_weights(sample_weight, X.shape[0])
         
         Xs = X[domains != self.target_domain]
         ys = y[domains != self.target_domain]
@@ -179,13 +189,11 @@ class MEKT(BaseEstimator, TransformerMixin):
         
         featureXs = mekt_feature(
             Xs, 
-            self.covariance_type, 
-            sample_weight=sample_weight, 
+            sample_weight=sample_weight[domains != self.target_domain], 
             metric=self.metric
             )
         featureXt = mekt_feature(
             Xt, 
-            self.covariance_type, 
             metric=self.metric
             )
         self.A_, self.B_ = mekt_kernel(
@@ -202,5 +210,75 @@ class MEKT(BaseEstimator, TransformerMixin):
         )
         source_features = featureXs @ self.A_
         target_features = featureXt @ self.B_
-        feature = np.concatenate((source_features, target_features), axis=0)
-        return feature
+        # feature = np.concatenate((source_features, target_features), axis=0)
+        feature = np.zeros((len(domains), source_features.shape[-1]))
+        feature[domains != self.target_domain] = source_features
+        feature[domains == self.target_domain] = target_features
+        
+        return feature, y
+    
+    def fit(self, X, y_enc, sample_weight=None):
+        """Fit the model with X and y.
+
+        Parameters
+        ----------
+        X: ndarray
+            EEG data, shape(n_trials, n_channels, n_channels).
+        y_enc: ndarray
+            Label, shape(n_trials,).
+        sample_weight: ndarray
+            Sample weight, shape(n_trials,).
+
+        Returns
+        -------
+        self: object
+            Returns the instance itself. 
+
+        """
+        features, y = self.fit_transform(X, y_enc, sample_weight)
+        
+        if self.selector is not None:
+            features = self.selector.fit_transform(features, y)
+        
+        self.model_ = self.estimator.fit(features, y)
+        return self
+    
+    def predict(self, X):
+        """Predict the target domain labels.
+
+        Parameters
+        ----------
+        X: ndarray
+            EEG data, shape(n_trials, n_channels, n_channels).
+
+        Returns
+        -------
+        y_pred: ndarray
+            Predicted target domain labels, shape(n_trials,).
+
+        """
+
+        y_pred = self.model_.predict(self.transform(X))
+
+        return y_pred
+    
+    def score(self, X, y_enc):
+        """Calculate the accuracy of the model.
+
+        Parameters
+        ----------
+        X: ndarray
+            EEG data, shape(n_trials, n_channels, n_channels).
+        y_enc: ndarray
+            Label, shape(n_trials,).
+
+        Returns
+        -------
+        score: float
+            Accuracy of the model.
+
+        """
+        _, y_true, _ = decode_domains(X, y_enc)
+        y_pred = self.predict(X)
+        return accuracy_score(y_true, y_pred)
+

@@ -12,7 +12,7 @@ from pyriemann.channelselection import FlatChannelRemover
 
 from .base import Downsample, ChannelSelector, BandpassFilter, TimeWindowSelector
 from .channel_selection import RiemannChannelSelector, CSPChannelSelector
-from .data_augmentation import TimeWindowDataAugmentation
+from .data_augmentation import TimeWindowDataExpansion
 from .rsf import RSF
 
 class Pre_Processing(BaseEstimator, TransformerMixin): 
@@ -80,6 +80,7 @@ class Pre_Processing(BaseEstimator, TransformerMixin):
         
         self.steps = []
         self.process = None
+        self.compat_flag = True  # compatibility, if True, the final pipeline (self.process) will be compatible with other sklearn pipeline
         self.memory = kwargs.get('memory', None)
         
         # downsampling parameters
@@ -103,12 +104,13 @@ class Pre_Processing(BaseEstimator, TransformerMixin):
         self.start_time = start_time
         self.end_time = end_time
         
+        ## optional parameters
         # data augmentation parameters
         self.aug_method = kwargs.get('aug_method', None)  # data augmentation method
-        self.window_width = kwargs.get('window_width', 2)  # window width for time window data augmentation
-        self.window_step = kwargs.get('window_step', 0.2)  # window step for time window data augmentation
+        self.window_width = kwargs.get('window_width', 1.5)  # window width for time window data augmentation
+        self.window_step = kwargs.get('window_step', 0.5)  # window step for time window data augmentation
         
-        # initialize the pre-processing steps
+        ## initialize the pre-processing steps
         # downsampling
         if self.fs_new is not None and self.fs_old is not None:
             self.steps.append(('downsample', Downsample(fs_new=self.fs_new, fs_old=self.fs_old)))
@@ -141,20 +143,27 @@ class Pre_Processing(BaseEstimator, TransformerMixin):
             else:
                 raise ValueError('Invalid channel selection method.')
                 
+        # time_window_data_augmentation
+        twda_flag = False
+        if self.aug_method is not None:
+            if self.aug_method == 'time_window':  
+                twda_flag = True
+                self.compat_flag = False  # compatibility flag
+                self.window_width = end_time - start_time if (end_time is not None) and (start_time is not None) else self.window_width 
+                self.steps.append(('time_window_data_augmentation', 
+                                   TimeWindowDataExpansion(fs=self.fs_new, 
+                                                           window_width=self.window_width, 
+                                                           window_step=self.window_step if self.window_step is not None else 0.5
+                                                           )))
+        
         # time window selection
-        if self.start_time is not None and self.end_time is not None:        
+        if self.start_time is not None and self.end_time is not None:       
             self.steps.append(('time_window_selector', TimeWindowSelector(fs=self.fs_new, 
                                                                           start_time=self.start_time, 
-                                                                          end_time=self.end_time
+                                                                          end_time=self.end_time, 
+                                                                          twda_flag=twda_flag
                                                                           )))
-        # data augmentation
-        if self.aug_method is not None:
-            if self.aug_method == 'time_window':
-                self.steps.append(('time_window_data_augmentation', 
-                                   TimeWindowDataAugmentation(fs=self.fs_new, 
-                                                              window_width=self.window_width, 
-                                                              window_step=self.window_step
-                                                              )))
+        
         # initialize the pipeline
         self.process = Pipeline(steps=self.steps, memory=self.memory)
         
@@ -184,4 +193,17 @@ class Pre_Processing(BaseEstimator, TransformerMixin):
         """
         
         return self.process.transform(X)
+    
+    def fit_transform(self, X, y=None):
+        """
+        Fit the pre-processing pipeline and transform the input data using the pre-processing pipeline.
+
+        Args:
+            X (ndarray): input data. Shape (n_samples, n_channels, n_times)
+            y (ndarray or None): labels. Shape (n_samples,)  
+
+    Returns:
+        X (ndarray): transformed data. Shape (n_samples, n_channels, n_times)
+        """
+        return self.process.fit_transform(X, y)
     

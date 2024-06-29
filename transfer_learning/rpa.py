@@ -1,11 +1,12 @@
 # Riemannian Procrustes Analysis (RPA) for transfer learning.
-# This code is modified from the original code of pyriemann.
+# This code is modified from pyriemann.
 # The original code is available at https://github.com/alexandrebarachant/pyRiemann.
+# License: BSD 3 clause
 
 # Modified by: LC.Pan <panlincong@tju.edu.cn>
 # Modified time: 2024-06-24 2:21:20 AM
-# Modification: use raw signals instead of SPD matrices as input and output.
-# License: BSD 3 clause
+# Modification: RCT/STR/ROT use raw signals instead of SPD matrices as input and output.
+
 
 import numpy as np
 from sklearn.base import BaseEstimator, TransformerMixin
@@ -14,9 +15,15 @@ from transfer_learning.base import decode_domains
 from pyriemann.utils.utils import check_weights
 from pyriemann.utils.mean import mean_riemann, mean_covariance
 from pyriemann.utils.distance import distance
-from pyriemann.utils.base import invsqrtm, sqrtm
+from pyriemann.utils.base import invsqrtm, powm, sqrtm
 from pyriemann.utils.covariance import covariances
 from pyriemann.transfer._rotate import _get_rotation_matrix
+from pyriemann.transfer import TLCenter, TLStretch, TLRotate
+from pyriemann.preprocessing import Whitening
+# from metabci.brainda.algorithms.manifold import (
+#     get_recenter, get_rescale, get_rotate, recenter, rescale, rotate)
+
+from machine_learning.base import recursive_reference_center
 
 # recenter
 class RCT(BaseEstimator, TransformerMixin): 
@@ -57,23 +64,32 @@ class RCT(BaseEstimator, TransformerMixin):
         no. 5, pp. 1107-1116, August, 2017
 
     """
-    def __init__(self, target_domain, metric="riemann", cov_method='lwf'): 
+    def __init__(self, 
+                 target_domain="target", 
+                 metric="riemann", 
+                 cov_method='lwf',
+                 update=False,
+                 min_tracked=6,
+                 ): 
         self.target_domain = target_domain
         self.metric = metric
         self.cov_method = cov_method
+        self.update = update
+        self.min_tracked = min_tracked  # 最小追踪样本数
+        self._n_tracked = 0
     
     def get_recenter(self, X, sample_weight):
         X = np.reshape(X, (-1, *X.shape[-2:]))
         X = X - np.mean(X, axis=-1, keepdims=True)
         C = covariances(X, estimator=self.cov_method)
         M = mean_covariance(C, self.metric, sample_weight)
-        self.filters_ = invsqrtm(M)
-        return self.filters_
+        filters = invsqrtm(M)
+        return filters, M
     
-    def recenter(self, X, filters_):
+    def recenter(self, X, filters):
         X = np.reshape(X, (-1, *X.shape[-2:]))
         X = X - np.mean(X, axis=-1, keepdims=True)
-        return np.einsum('jk,...kl->...jl', filters_, X)
+        return np.einsum('jk,...kl->...jl', filters, X)
         
     def fit(self, X, y_enc, sample_weight=None):
         """Fit TLCenter.
@@ -98,14 +114,21 @@ class RCT(BaseEstimator, TransformerMixin):
         n_matrices, _, _ = X.shape
         sample_weight = check_weights(sample_weight, n_matrices)
         
-        self.recenter_ = {}
+        self.reference_ = {}
+        centers, weights = [], []
         for d in np.unique(domains):
             idx = domains == d
-            self.recenter_[d] = self.get_recenter(
+            self.reference_[d], M = self.get_recenter(
                 X[idx], 
                 sample_weight=sample_weight[idx]
             )
+            centers.append(M)
+            weights.append(np.sum(sample_weight[idx]))
         
+        if self.target_domain not in self.reference_.keys():
+            self.reference_[self.target_domain], _ = self.get_recenter(
+                np.array(centers), sample_weight=weights)
+            
         return self
 
     def transform(self, X, y_enc=None):
@@ -123,8 +146,40 @@ class RCT(BaseEstimator, TransformerMixin):
         X : ndarray, shape (n_matrices, n_classes)
             Set of SPD matrices with mean in the Identity.
         """
+        
+        if self.update == 'offline':
+            for i in range(X.shape[0]):
+                if i == 0:
+                    temp_reference_ = covariances(X[i], estimator=self.cov_method)
+                else:
+                    C = covariances(X[i], estimator=self.cov_method)
+                    temp_reference_ = recursive_reference_center(
+                        temp_reference_, C, alpha=1/(i+1), metric=self.metric)
+                
+                if i >= self.min_tracked - 1:
+                    self.reference_[self.target_domain] = temp_reference_
+                
+                X[i] = self.recenter(X[i], self.reference_[self.target_domain])
+                
+            return X
+        
+        elif self.update == 'online':
+            if self._n_tracked == 0:
+                self.temp_recenter_ = covariances(X, estimator=self.cov_method)
+            
+            self._n_tracked += 1
+            
+            if self._n_tracked > 1:
+                alpha = 1 / self._n_tracked # alpha为新样本权重，1-alpha为旧样本权重
+                C = covariances(X, estimator=self.cov_method)
+                self.temp_recenter_ = recursive_reference_center(
+                    self.temp_recenter_, C, alpha=alpha, metric=self.metric)
+
+            if self._n_tracked >= self.min_tracked:
+                self.reference_[self.target_domain] = self.temp_recenter_
+        
         # Used during inference, apply recenter from specified target domain.
-        return self.recenter(X, self.recenter_[self.target_domain])
+        return self.recenter(X, self.reference_[self.target_domain])
 
     def fit_transform(self, X, y_enc, sample_weight=None):
         """Fit TLCenter and then transform data points.
@@ -158,7 +213,7 @@ class RCT(BaseEstimator, TransformerMixin):
         X_rct = np.zeros_like(X)
         for d in np.unique(domains):
             idx = domains == d
-            X_rct[idx] = self.recenter(X[idx], self.recenter_[d])
+            X_rct[idx] = self.recenter(X[idx], self.reference_[d])
         return X_rct
 
 class STR(BaseEstimator, TransformerMixin):
@@ -200,16 +255,31 @@ class STR(BaseEstimator, TransformerMixin):
         vol. 66, no. 8, pp. 2390-2401, December, 2018
 
     """
-
-    def __init__(self, target_domain, final_dispersion=1.0, centered_data=False, 
-                 metric="riemann", cov_method='lwf'):
-        """Init"""
+    def __init__(self, target_domain="target", metric="riemann", cov_method='lwf'): 
         self.target_domain = target_domain
-        self.final_dispersion = final_dispersion
-        self.centered_data = centered_data
         self.metric = metric
         self.cov_method = cov_method
+    
+    def get_rescale(self, X, sample_weight=None):
+        X = np.reshape(X, (-1, *X.shape[-2:]))
+        X = X - np.mean(X, axis=-1, keepdims=True)
+        C = covariances(X, estimator=self.cov_method)
+        M = mean_riemann(C, sample_weight=sample_weight)
+        d = np.mean(np.square(distance(C, M, metric=self.metric)))
+        scale = np.sqrt(1 / d)
+        return M, scale
 
+    def rescale(self, X, M, scale):
+        X = np.reshape(X, (-1, *X.shape[-2:]))
+        X = X - np.mean(X, axis=-1, keepdims=True)
+        C = covariances(X, estimator=self.cov_method)
+        iM12 = invsqrtm(M)
+        M12 = sqrtm(M)
+        A = iM12 @ C @ iM12
+        B = M12 @ powm(A, (scale - 1) / 2) @ iM12
+        X = B @ X
+        return X
+    
     def fit(self, X, y_enc, sample_weight=None):
         """Fit TLStretch.
 
@@ -232,46 +302,28 @@ class STR(BaseEstimator, TransformerMixin):
         _, _, domains = decode_domains(X, y_enc)
         n_matrices, n_channels, _ = X.shape
         sample_weight = check_weights(sample_weight, n_matrices)
-        covX = covariances(X, estimator=self.cov_method)
         
-        self._means, self.dispersions_ = {}, {}
+        self._means, self.scales_ = {}, {}
+        centers, weights = []
         for d in np.unique(domains):
             idx = domains == d
             sample_weight_d = check_weights(sample_weight[idx], np.sum(idx))
-            if self.centered_data:
-                self._means[d] = np.eye(n_channels)
-            else:
-                self._means[d] = mean_riemann(
-                    covX[idx], sample_weight=sample_weight_d)
-
-            dist = distance(
-                covX[idx],
-                self._means[d],
-                metric=self.metric,
-                squared=True,
-            )
-            self.dispersions_[d] = np.sum(sample_weight_d * np.squeeze(dist))
-
+            self._means[d], self.scales_[d] = self.get_rescale(X[idx], sample_weight_d)
+            centers.append(self._means[d])
+            weights.append(np.sum(sample_weight_d))
+        
+        if self.target_domain not in self.scales_.keys():
+            self._means[self.target_domain], self.scales_[self.target_domain] = self.get_rescale(
+                centers, sample_weight=weights)
+        
         return self
-
-    def _center(self, X, mean):
-        Mean_isqrt = invsqrtm(mean)
-        return np.einsum('ij,ajt->ait', Mean_isqrt, X)
-
-    def _uncenter(self, X, mean):
-        Mean_sqrt = sqrtm(mean)
-        return np.einsum('ij,ajt->ait', Mean_sqrt, X)
-
-    def _strech(self, X, dispersion_in, dispersion_out):
-        factor = np.sqrt(dispersion_out / dispersion_in)
-        return X * factor
 
     def transform(self, X, y_enc=None):
         """Stretch the data points in the target domain.
 
         .. note::
-           The stretching operation is properly defined only for the riemann
-           metric.
+            The stretching operation is properly defined only for the riemann
+            metric.
 
         Parameters
         ----------
@@ -285,23 +337,8 @@ class STR(BaseEstimator, TransformerMixin):
         X : ndarray, shape (n_samples, n_channels, n_times)
             Set of raw signals with desired final dispersion.
         """
-        
-        
-        if not self.centered_data:
-            # center matrices to Identity
-            X = self._center(X, self._means[self.target_domain])
 
-        # stretch
-        covX = covariances(X, estimator=self.cov_method)
-        X_str = self._strech(
-            covX, self.dispersions_[self.target_domain], self.final_dispersion
-        )
-
-        if not self.centered_data:
-            # re-center back to previous mean
-            X_str = self._uncenter(X_str, self._means[self.target_domain])
-
-        return X_str
+        return self.rescale(X, self._means[self.target_domain], self.scales_[self.target_domain])
 
     def fit_transform(self, X, y_enc, sample_weight=None):
         """Fit TLStretch and then transform data points.
@@ -310,9 +347,9 @@ class STR(BaseEstimator, TransformerMixin):
         stretch the data points to the desired final dispersion.
 
         .. note::
-           This method is designed for using at training time. The output for
-           .fit_transform() will be different than using .fit() and
-           .transform() separately.
+            This method is designed for using at training time. The output for
+            .fit_transform() will be different than using .fit() and
+            .transform() separately.
 
         Parameters
         ----------
@@ -336,21 +373,8 @@ class STR(BaseEstimator, TransformerMixin):
         X_str = np.zeros_like(X)
         for d in np.unique(domains):
             idx = domains == d
-
-            if not self.centered_data:
-                # re-center matrices to Identity
-                X[idx] = self._center(X[idx], self._means[d])
-
-            # stretch
-            covX = covariances(X[idx], estimator=self.cov_method)
-            X_str[idx] = self._strech(
-                covX, self.dispersions_[d], self.final_dispersion
-            )
-
-            if not self.centered_data:
-                # re-center back to previous mean
-                X_str[idx] = self._uncenter(X_str[idx], self._means[d])
-
+            X_str[idx] = self.rescale(X[idx], self._means[d], self.scales_[d])
+        
         return X_str
 
 class ROT(BaseEstimator, TransformerMixin):
@@ -403,7 +427,7 @@ class ROT(BaseEstimator, TransformerMixin):
 
     """
 
-    def __init__(self, target_domain, weights=None, metric='euclid', 
+    def __init__(self, target_domain="target", weights=None, metric='euclid', 
                  cov_method='lwf', n_jobs=1):
         """Init"""
         self.target_domain = target_domain
@@ -434,6 +458,9 @@ class ROT(BaseEstimator, TransformerMixin):
         """
 
         _, _, domains = decode_domains(X, y_enc)
+        if self.target_domain not in np.unique(domains):
+            raise ValueError("Target domain not found in train data.")
+        
         n_matrices, _, _ = X.shape
         sample_weight = check_weights(sample_weight, n_matrices)
         covX = covariances(X, estimator=self.cov_method)
@@ -520,8 +547,11 @@ class ROT(BaseEstimator, TransformerMixin):
         """
 
         # used during fit in pipeline, rotate each source domain
-        self.fit(X, y_enc, sample_weight)
         _, _, domains = decode_domains(X, y_enc)
+        if self.target_domain not in np.unique(domains):
+            return X  # return input if target domain not found in train data.
+        
+        self.fit(X, y_enc, sample_weight)
         
         X_rot = np.zeros_like(X)
         
@@ -536,3 +566,70 @@ class ROT(BaseEstimator, TransformerMixin):
             else:
                 X_rot[idx] = X[idx]
         return X_rot
+
+
+class TLCenter_online(RCT):
+    """Online version of TLCenter."""
+    
+    def __init__(self, target_domain="target", metric="riemann", update=False, min_tracked=6):
+        """Init"""
+        self.target_domain = target_domain
+        self.metric = metric
+        self.update = update
+        self.min_tracked = min_tracked  # 最小追踪样本数
+        self._n_tracked = 0
+    
+    def get_recenter(self, X, sample_weight):
+        M = mean_covariance(X, self.metric, sample_weight)
+        filters = invsqrtm(M)
+        return filters, M
+    
+    def recenter(self, X, filters):
+        return filters.T @ X @ filters
+    
+    def transform(self, X, y_enc=None):
+        """Re-center the data points in the target domain to Identity.
+
+        Parameters
+        ----------
+        X : ndarray, shape (n_matrices, n_channels, n_channels)
+            Set of SPD matrices.
+        y_enc : None
+            Not used, here for compatibility with sklearn API.
+
+        Returns
+        -------
+        X : ndarray, shape (n_matrices, n_classes)
+            Set of SPD matrices with mean in the Identity.
+        """
+        
+        if self.update == 'offline':
+            for i in range(X.shape[0]):
+                if i == 0:
+                    temp_reference_ = X[i]
+                else:
+                    temp_reference_ = recursive_reference_center(
+                        temp_reference_, X[i], alpha=1/(i+1), metric=self.metric)
+                
+                if i >= self.min_tracked - 1:
+                    self.reference_[self.target_domain] = temp_reference_
+                
+                X[i] = self.recenter(X[i], self.reference_[self.target_domain])
+            return X
+        
+        elif self.update == 'online':
+            self._n_tracked += 1
+            if self._n_tracked == 1:
+                self.temp_reference_ = X
+            else:
+                alpha = 1 / self._n_tracked # alpha为新样本权重，1-alpha为旧样本权重
+                self.temp_reference_ = recursive_reference_center(
+                    self.temp_reference_, X, alpha=alpha, metric=self.metric)
+
+            if self._n_tracked >= self.min_tracked:
+                self.reference_[self.target_domain] = self.temp_reference_
+        
+        # Used during inference, apply recenter from specified target domain.
+        return self.recenter(X, self.reference_[self.target_domain])
+    
+    

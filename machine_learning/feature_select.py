@@ -6,6 +6,8 @@
 
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.feature_selection import mutual_info_classif
+from sklearn.linear_model import Lasso
+from sklearn.decomposition import PCA
 import numpy as np
 from numpy import ndarray
 import math
@@ -91,3 +93,15 @@ class MutualInformationSelector(BaseEstimator, TransformerMixin):
 
     
 
+class LassoFeatureSelector(BaseEstimator, TransformerMixin):
+    def __init__(self, alpha=1.0):
+        self.alpha = alpha
+        self.lasso = Lasso(alpha=self.alpha)
+        
+    def fit(self, X, y=None):
+        self.lasso.fit(X, y)
+        self.support_ = np.where(self.lasso.coef_ != 0)[0]
+        return self
+    
+    def transform(self, X):
+        return X[:, self.support_]
