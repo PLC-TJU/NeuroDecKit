@@ -15,6 +15,8 @@ from pyriemann.estimation import Covariances
 from scipy.linalg import eigh
 from pyriemann.utils.mean import mean_covariance
 from pyriemann.utils.ajd import ajd_pham
+from pyriemann.utils.utils import check_weights
+from transfer_learning.base import decode_domains
 
 class RiemannChannelSelector(BaseEstimator, TransformerMixin):
     """Channel selection based on a Riemannian geometry criterion.
@@ -48,11 +50,12 @@ class RiemannChannelSelector(BaseEstimator, TransformerMixin):
         Indices of selected channels.
     """
 
-    def __init__(self, nelec=16, metric="riemann", n_jobs=1):
+    def __init__(self, nelec=16, metric="riemann", n_jobs=1, **kwargs):
         """Init."""
         self.nelec = nelec
         self.metric = metric
         self.n_jobs = n_jobs
+        self.weights = None
     
     def __repr__(self):
         """Repr."""
@@ -75,6 +78,12 @@ class RiemannChannelSelector(BaseEstimator, TransformerMixin):
         self : ElectrodeSelection instance
             The ElectrodeSelection instance.
         """
+        sample_weight = self.weights if sample_weight is None else sample_weight
+        sample_weight = check_weights(sample_weight, X.shape[0])
+        
+        # Decode domains
+        _, y, _ = decode_domains(X, y)
+        
         # Compute covariance matrices
         Cov = Covariances(estimator='lwf').transform(X)
 
@@ -125,16 +134,17 @@ class RiemannChannelSelector(BaseEstimator, TransformerMixin):
 
 
 class CSPChannelSelector(BaseEstimator, TransformerMixin):
-    def __init__(self, nelec=16, metric='euclid'):
+    def __init__(self, nelec=16, metric='euclid', **kwargs):
         """Init."""
         self.nelec = nelec
         self.metric = metric
+        self.weights = None
     
     def __repr__(self):
         """Repr."""
         return f'{self.__class__.__name__}(nelec={self.nelec}, metric={self.metric})'
 
-    def fit(self, X, y, **sample_weight):
+    def fit(self, X, y, sample_weight=None):
         """Train CSP spatial filters.
 
         Parameters
@@ -149,7 +159,7 @@ class CSPChannelSelector(BaseEstimator, TransformerMixin):
         self : CSP instance
             The CSP instance.
         """
-        if not isinstance(self.nfilter, int):
+        if not isinstance(self.nelec, int):
             raise TypeError('nfilter must be an integer')
         if not isinstance(X, (np.ndarray, list)):
             raise TypeError('X must be an array.')
@@ -162,7 +172,12 @@ class CSPChannelSelector(BaseEstimator, TransformerMixin):
             raise ValueError('X and y must have the same length.')
         if np.squeeze(y).ndim != 1:
             raise ValueError('y must be of shape (n_trials,).')
+        sample_weight = self.weights if sample_weight is None else sample_weight
+        sample_weight = check_weights(sample_weight, X.shape[0])
 
+        # Decode domains
+        _, y, _ = decode_domains(X, y)
+        
         n_trials, n_channels, _ = X.shape
         classes = np.unique(y)
         

@@ -10,20 +10,7 @@ from pre_processing.preprocessing import Pre_Processing
 from transfer_learning.tl_classifier import TL_Classifier
 from joblib import Memory
 from .utilities import estimator_list
-# from ..utils import check_sample_dims
-
-# from deep_learning.dl_classifier import DL_Classifier
-# from pre_processing.preprocessing import Pre_Processing
-
-# 定义所有方法
-# DPA_METHODS = ['TLDummy', 'EA', 'RA', 'RPA']
-# FEE_METHODS = [None, 'CSP', 'TRCSP', 'MDM', 'FGMDM', 'TS']
-# FES_METHODS = [None, 'ANOVA-K', 'ANOVA-P', 'MIC-K', 'MIC-P', 'PCA', 'LASSO', 'RFE', 'RFECV']
-# # CLF_METHODS = [None, 'SVM', 'LDA', 'LR', 'KNN', 'DTC', 'RFC', 'ETC', 'ABC', 'GBC', 'GNB', 'MLP', 'XGBoost', 'CatBoost', 'LightGBM']
-# CLF_METHODS = [None, 'SVM', 'LDA', 'LR', 'KNN', 'DTC', 'RFC', 'ETC', 'ABC', 'GBC', 'GNB', 'MLP']
-# END_METHODS = [None, 'RKNN', 'RKSVM', 'ABC-MDM', 'ABC-FGMDM', 'ABC-TSSVM', 'ABC-TSLDA', 'ABC-TSLR', 
-#                'MDWM', 'MEKT','MEKT-SVM','MEKT-LR']
-# END_TO_END_METHODS = [None, 'TRCA', 'DCPM', 'SBLEST']
+from .base import decode_domains
 
 def check_sample_dims(X, y):
     """
@@ -141,7 +128,7 @@ class Algorithms(BaseEstimator, ClassifierMixin):
         memory_location=None,
         fs_new=None, 
         fs_old=None, 
-        n_channels=None, 
+        channels=None, 
         start_time=None, 
         end_time=None, 
         lowcut=None, 
@@ -156,9 +143,10 @@ class Algorithms(BaseEstimator, ClassifierMixin):
         
         self.algorithm_id = algorithm_id
         self.target_domain = target_domain
+        self.memory_location = memory_location
         self.fs_new = fs_new
         self.fs_old = fs_old
-        self.n_channels = n_channels
+        self.channels = channels
         self.start_time = start_time
         self.end_time = end_time
         self.lowcut = lowcut
@@ -170,8 +158,7 @@ class Algorithms(BaseEstimator, ClassifierMixin):
         self.tl_mode = tl_mode  
         self.kwargs = kwargs
 
-        if memory_location is not None:
-            self.memory_location = memory_location
+        if self.memory_location is not None:
             self.memory = Memory(location=self.memory_location, verbose=0, bytes_limit=1024*1024*1024*20)
         else:
             self.memory = None
@@ -187,7 +174,7 @@ class Algorithms(BaseEstimator, ClassifierMixin):
         self.PreProcess = Pre_Processing(
             fs_new=self.fs_new, 
             fs_old=self.fs_old, 
-            n_channels=self.n_channels, 
+            channels=self.channels, 
             start_time=self.start_time, 
             end_time=self.end_time, 
             lowcut=self.lowcut, 
@@ -206,6 +193,7 @@ class Algorithms(BaseEstimator, ClassifierMixin):
             clf_method=self.CLF_METHODS[self.algorithm_id[3]], 
             end_method=self.END_METHODS[self.algorithm_id[4]], 
             ete_method=self.END_TO_END_METHODS[self.algorithm_id[5]], 
+            pre_est=self.pre_est, 
             memory=self.memory, 
             target_domain=self.target_domain,
             tl_mode=self.tl_mode,
@@ -219,9 +207,34 @@ class Algorithms(BaseEstimator, ClassifierMixin):
         :param y: The target data.
         :return: The trained algorithm.
         """
-        X = self.PreProcess.fit_transform(X, y)
-        X, y = check_sample_dims(X, y)  
-        self.Model = self.TLClassifierModel.fit(X, y)
+        
+        X_dec, _, domains = decode_domains(X, y)
+        w = np.zeros(len(X_dec))
+        w[domains == self.target_domain] = 1
+        for name, step in self.PreProcess.process.steps:
+            if name == 'channel_selector_plus':
+                step.weights = w
+                break 
+        
+        if self.PreProcess.compat_flag:
+            self.TLClassifierModel.__init__(
+                dpa_method=self.DPA_METHODS[self.algorithm_id[0]], 
+                fee_method=self.FEE_METHODS[self.algorithm_id[1]], 
+                fes_method=self.FES_METHODS[self.algorithm_id[2]], 
+                clf_method=self.CLF_METHODS[self.algorithm_id[3]], 
+                end_method=self.END_METHODS[self.algorithm_id[4]], 
+                ete_method=self.END_TO_END_METHODS[self.algorithm_id[5]], 
+                pre_est=self.PreProcess.process, 
+                memory=self.memory, 
+                target_domain=self.target_domain,
+                tl_mode=self.tl_mode,
+                **self.kwargs
+                )
+            self.Model = self.TLClassifierModel.fit(X, y)
+        else:
+            X = self.PreProcess.fit_transform(X, y)
+            X, y = check_sample_dims(X, y)  
+            self.Model = self.TLClassifierModel.fit(X, y)
         return self
           
     def predict(self, X):
@@ -230,7 +243,8 @@ class Algorithms(BaseEstimator, ClassifierMixin):
         :param X: The input data.
         :return: The predicted target data.
         """
-        X = self.PreProcess.transform(X)
+        if not self.PreProcess.compat_flag:
+            X = self.PreProcess.transform(X)
         return self.Model.predict(X)
 
     def predict_proba(self, X):
@@ -239,7 +253,8 @@ class Algorithms(BaseEstimator, ClassifierMixin):
         :param X: The input data.
         :return: The predicted probability of the target data.
         """ 
-        X = self.PreProcess.transform(X)
+        if not self.PreProcess.compat_flag:
+            X = self.PreProcess.transform(X)
         return self.Model.predict_proba(X)
 
     def score(self, X, y):
@@ -249,7 +264,8 @@ class Algorithms(BaseEstimator, ClassifierMixin):
         :param y: The target data.
         :return: The accuracy of the algorithm.
         """ 
-        X = self.PreProcess.transform(X)
+        if not self.PreProcess.compat_flag:
+            X = self.PreProcess.transform(X)
         return self.Model.score(X, y)
 
 

@@ -304,7 +304,7 @@ class STR(BaseEstimator, TransformerMixin):
         sample_weight = check_weights(sample_weight, n_matrices)
         
         self._means, self.scales_ = {}, {}
-        centers, weights = []
+        centers, weights = [], []
         for d in np.unique(domains):
             idx = domains == d
             sample_weight_d = check_weights(sample_weight[idx], np.sum(idx))
