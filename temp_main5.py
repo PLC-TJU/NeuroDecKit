@@ -40,7 +40,7 @@ df = pd.read_csv('transfer_learning/algorithms_all.csv')
 
 # 遍历每个subject
 SN = []
-for sub in [1,8,9,10,11]:#dataset.subject_list:
+for sub in dataset.subject_list:
     print(f"Subject {sub}...")
     
     # 加载数据
@@ -81,7 +81,7 @@ for sub in [1,8,9,10,11]:#dataset.subject_list:
         algorithm_id=value, 
         target_domain=target_domain, 
         memory_location=None,#=cachedir,
-        fs_new=100, 
+        fs_new=160, 
         fs_old=250, 
         n_channels=None, 
         start_time=0.5, 
@@ -112,7 +112,7 @@ for sub in [1,8,9,10,11]:#dataset.subject_list:
             print(f"{i+1}. Method {key} has an accuracy of {test_score.mean():.2f} +/- {test_score.std():.2f}")
             
             if (i+1) % 100 == 0:
-                df.to_csv(f'results/algorithms_all_result_TL_{sub}.csv', index=False)
+                df.to_csv(f'results/algorithms_all_result_CF_{sub}.csv', index=False)
     
         except:
             N.append(i)

@@ -2,8 +2,7 @@
 TL_Classifier: Transfer Learning Classifier
 Author: Pan.LC <coreylin2023@outlook.com>
 Date: 2024/6/21
-License: MIT License
-
+License: All rights reserved
 """
 
 from .utilities import *

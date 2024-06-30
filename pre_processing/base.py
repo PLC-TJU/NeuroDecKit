@@ -267,5 +267,16 @@ class Smooth(BaseEstimator, TransformerMixin):
         y = np.convolve(w / w.sum(), s, mode='same')
         return y[self.window_len:-self.window_len+1]
 
-  
+# 自定义转换器，将数据转换为 float32或float64 类型
+class PrecisionConverter(BaseEstimator, TransformerMixin):
+    def __init__(self, precision='float32'):
+        self.precision = precision
+        if self.precision not in ['float32', 'float64']:
+            raise ValueError("precision must be 'float32' or 'float64'")
+    
+    def fit(self, X, y=None):
+        return self
+    
+    def transform(self, X, y=None):
+        return X.astype(self.precision)
 

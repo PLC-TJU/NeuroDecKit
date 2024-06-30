@@ -2,7 +2,7 @@
 Pre-processing
 Author: Pan.LC <coreylin2023@outlook.com>
 Date: 2024/6/21
-License: MIT License
+License: All rights reserved
 """
 
 from sklearn.base import BaseEstimator, TransformerMixin
@@ -10,7 +10,7 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 from pyriemann.channelselection import FlatChannelRemover
 
-from .base import Downsample, ChannelSelector, BandpassFilter, TimeWindowSelector
+from .base import Downsample, ChannelSelector, BandpassFilter, TimeWindowSelector, PrecisionConverter
 from .channel_selection import RiemannChannelSelector, CSPChannelSelector
 from .data_augmentation import TimeWindowDataExpansion
 from .rsf import RSF
@@ -111,6 +111,9 @@ class Pre_Processing(BaseEstimator, TransformerMixin):
         self.window_step = kwargs.get('window_step', 0.5)  # window step for time window data augmentation
         
         ## initialize the pre-processing steps
+        # convert precision
+        self.steps.append(('precision_converter', PrecisionConverter()))
+        
         # downsampling
         if self.fs_new is not None and self.fs_old is not None:
             self.steps.append(('downsample', Downsample(fs_new=self.fs_new, fs_old=self.fs_old)))
