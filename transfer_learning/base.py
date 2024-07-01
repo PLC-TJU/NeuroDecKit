@@ -375,7 +375,7 @@ class TLClassifier(BaseEstimator):
                     w[domains == d] = self.domain_weight[d]
             else:
                 w = None
-        elif self.tl_mode.upper() == 'NOTL':
+        elif self.tl_mode.upper() in ['NOTL', 'NT']:
             w = np.zeros(len(X_dec))
             w[domains == self.target_domain] = 1
         elif self.tl_mode.upper() in ['CALIBRATION-FREE','CF']:

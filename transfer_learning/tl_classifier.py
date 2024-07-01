@@ -248,10 +248,7 @@ class TL_Classifier(BaseEstimator, ClassifierMixin):
             'ABC-TS-LDA':         ('abc-tslda',          ABC(
                                                          TSclassifier(clf=
                                                          LDA(solver='eigen', shrinkage='auto')), n_estimators=n_estimators, algorithm=algorithm)),
-            'ABC-TS-LR':          ('abc-tsglm',          ABC(
-                                                         TSclassifier(clf=
-                                                         LR(random_state=self.random_state)), n_estimators=n_estimators, algorithm=algorithm)),
-            'ABC-TS-GLM':         ('abc-tsglm',          ABC(
+            'ABC-TS-LR':          ('abc-tslr',          ABC(
                                                          TSclassifier(clf=
                                                          LR(random_state=self.random_state)), n_estimators=n_estimators, algorithm=algorithm)),
             'ABC-TS-SVM':         ('abc-tssvm',          ABC(
