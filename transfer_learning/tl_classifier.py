@@ -28,8 +28,8 @@ class TL_Classifier(BaseEstimator, ClassifierMixin):
         self.tl_mode = tl_mode # 迁移学习模式 ['TL', 'NOTL', 'Calibration-Free']
         # note: 
         # 'TL' means transfer learning, 
-        # 'NOTL' means no transfer learning, 
-        # 'Calibration-Free' means no calibration
+        # 'NOTL' means no transfer learning, e.g. only use the target domain data for training 
+        # 'Calibration-Free' means no calibration, e.g. only use the source domain data for training
         
         self.domain_tags = kwargs.get('domain_tags', None) # 域标签 ['domain1', 'domain2', 'domain3']
         self.domain_weight = kwargs.get('domain_weight', None) # 各个域权重 {'domain1': 0.5, 'domain2': 0.3, 'domain3': 0.2}
@@ -38,6 +38,7 @@ class TL_Classifier(BaseEstimator, ClassifierMixin):
         self.fea_num = kwargs.get('fea_num', 12) # 特征数量
         self.fea_percent = kwargs.get('fea_percent', 30) # 特征数量百分比
         self.cov_estimator = kwargs.get('cov_estimator', 'lwf') # 样本协方差矩阵估计器
+        self.random_state = kwargs.get('random_state', 42) # 随机种子
         
         # 预处理器
         pre_est = self.check_preest(self.pre_est)
@@ -187,8 +188,8 @@ class TL_Classifier(BaseEstimator, ClassifierMixin):
             'MIC-P':     SelectPercentile(mutual_info_classif, percentile=self.fea_percent),
             'PCA':       PCA(n_components=0.9), # 基于PCA的特征降维
             'LASSO':     Lasso(alpha=0.01), # 基于Lasso回归的特征选择 (L1正则化)
-            'RFE':       RFE(estimator=LR(), n_features_to_select=self.fea_num), # 基于递归特征消除的特征选择
-            'RFECV':     RFECV(estimator=LR(), step=1, cv=5, scoring='accuracy'), # 基于递归特征消除的交叉验证特征选择
+            'RFE':       RFE(estimator=LR(random_state=self.random_state), n_features_to_select=self.fea_num), # 基于递归特征消除的特征选择
+            'RFECV':     RFECV(estimator=LR(random_state=self.random_state), step=1, cv=5, scoring='accuracy'), # 基于递归特征消除的交叉验证特征选择
         }
         if callable(fes):
             pass
@@ -210,15 +211,15 @@ class TL_Classifier(BaseEstimator, ClassifierMixin):
             'NONE': Pipeline(steps=[]), # 空分类器
             'SVM':  ('svm', SVC(C=1, kernel='linear')),#支持向量机
             'LDA':  ('lda', LDA(solver='eigen', shrinkage='auto')), # 线性判别分析, **注意：LDA没有sample_weight参数
-            'LR':   ('lr',  LR()), # 逻辑回归
+            'LR':   ('lr',  LR(random_state=self.random_state)), # 逻辑回归
             'KNN':  ('knn', KNN(n_neighbors=5)), # K近邻, **注意：KNN没有sample_weight参数
-            'DTC':  ('dtc', DTC(min_samples_split=2)), # 决策树分类器
-            'RFC':  ('rfc', RFC(n_estimators=100)), # 随机森林分类器
-            'ETC':  ('etc', ETC(n_estimators=100)), # 极限随机树分类器
-            'ABC':  ('abc', ABC(estimator=None, n_estimators=50, algorithm='SAMME')), # AdaBoost分类器
-            'GBC':  ('gbc', GBC(n_estimators=100)), # GradientBoosting分类器
+            'DTC':  ('dtc', DTC(min_samples_split=2, random_state=self.random_state)), # 决策树分类器
+            'RFC':  ('rfc', RFC(n_estimators=100, random_state=self.random_state)), # 随机森林分类器
+            'ETC':  ('etc', ETC(n_estimators=100, random_state=self.random_state)), # 极限随机树分类器
+            'ABC':  ('abc', ABC(estimator=None, n_estimators=50, algorithm='SAMME', random_state=self.random_state)), # AdaBoost分类器
+            'GBC':  ('gbc', GBC(n_estimators=100, random_state=self.random_state)), # GradientBoosting分类器
             'GNB':  ('gnb', GNB()), # 高斯朴素贝叶斯分类器
-            'MLP':  ('mlp', MLP(hidden_layer_sizes=(100,), max_iter=1000, alpha=0.0001, solver='adam')), # 多层感知机, **注意：MLP没有sample_weight参数
+            'MLP':  ('mlp', MLP(hidden_layer_sizes=(100,), max_iter=1000, alpha=0.0001, solver='adam', random_state=self.random_state)), # 多层感知机, **注意：MLP没有sample_weight参数
         }
         if callable(clf):
             pass
@@ -237,101 +238,159 @@ class TL_Classifier(BaseEstimator, ClassifierMixin):
     def check_endest(self, est, n_estimators=50, algorithm='SAMME'):
         est = 'None' if est is None else est
         estimators = {
-            'NONE':        [],
-            'RKNN':        ('rknn',      RKNN(n_neighbors=5, metric='riemann')), 
-            'RKSVM':       ('rksvm',     RKSVM(C=1, metric='riemann')),
-            'ABC-MDM':     ('abc-mdm',   ABC(estimator=MDM(), n_estimators=n_estimators, algorithm=algorithm)),
-            'ABC-FGMDM':   ('abc-fgmdm', ABC(estimator=FgMDM(), n_estimators=n_estimators, algorithm=algorithm)),
-            'ABC-TS-LDA':  ('abc-tslda', ABC(TSclassifier(clf=LDA()), n_estimators=n_estimators, algorithm=algorithm)),
-            'ABC-TS-LR':   ('abc-tsglm', ABC(TSclassifier(clf=LR()), n_estimators=n_estimators, algorithm=algorithm)),
-            'ABC-TS-GLM':  ('abc-tsglm', ABC(TSclassifier(clf=LR()), n_estimators=n_estimators, algorithm=algorithm)),
-            'ABC-TS-SVM':  ('abc-tssvm', ABC(TSclassifier(clf=SVC()), n_estimators=n_estimators, algorithm=algorithm)),
-            'ABC-TS-MIC-K-LDA': ('abc-ts-mic-k-lda', ABC(TSclassifier(clf=make_pipeline(
-                SelectKBest(mutual_info_classif, k=self.fea_num), LDA()), memory=self.memory), n_estimators=n_estimators, algorithm=algorithm)),
-            'ABC-TS-MIC-K-LR':  ('abc-ts-mic-k-lr', ABC(TSclassifier(clf=make_pipeline(
-                SelectKBest(mutual_info_classif, k=self.fea_num), LR()), memory=self.memory), n_estimators=n_estimators, algorithm=algorithm)),
-            'ABC-TS-MIC-K-SVM': ('abc-ts-mic-k-svm', ABC(TSclassifier(clf=make_pipeline(
-                SelectKBest(mutual_info_classif, k=self.fea_num), SVC()), memory=self.memory), n_estimators=n_estimators, algorithm=algorithm)),
-            'ABC-TS-MIC-P-LDA': ('abc-ts-mic-p-lda', ABC(TSclassifier(clf=make_pipeline(
-                SelectPercentile(mutual_info_classif, percentile=self.fea_percent), LDA()), memory=self.memory), n_estimators=n_estimators, algorithm=algorithm)),
-            'ABC-TS-MIC-P-LR':  ('abc-ts-mic-p-lr', ABC(TSclassifier(clf=make_pipeline(
-                SelectPercentile(mutual_info_classif, percentile=self.fea_percent), LR()), memory=self.memory), n_estimators=n_estimators, algorithm=algorithm)),
-            'ABC-TS-MIC-P-SVM': ('abc-ts-mic-p-svm', ABC(TSclassifier(clf=make_pipeline(
-                SelectPercentile(mutual_info_classif, percentile=self.fea_percent), SVC()), memory=self.memory), n_estimators=n_estimators, algorithm=algorithm)),
-            'ABC-TS-PCA-LDA':   ('abc-ts-pca-lda', ABC(TSclassifier(clf=make_pipeline(
-                PCA(n_components=0.9), LDA()), memory=self.memory), n_estimators=n_estimators, algorithm=algorithm)),
-            'ABC-TS-PCA-LR':    ('abc-ts-pca-lr', ABC(TSclassifier(clf=make_pipeline(
-                PCA(n_components=0.9), LR()), memory=self.memory), n_estimators=n_estimators, algorithm=algorithm)),
-            'ABC-TS-PCA-SVM':   ('abc-ts-pca-svm', ABC(TSclassifier(clf=make_pipeline(
-                PCA(n_components=0.9), SVC()), memory=self.memory), n_estimators=n_estimators, algorithm=algorithm)),
-            'ABC-TS-LASSO-LDA': ('abc-ts-lasso-lda', ABC(TSclassifier(clf=make_pipeline(
-                Lasso(alpha=0.01), LDA()), memory=self.memory), n_estimators=n_estimators, algorithm=algorithm)),
-            'ABC-TS-LASSO-LR':  ('abc-ts-lasso-lr', ABC(TSclassifier(clf=make_pipeline(
-                Lasso(alpha=0.01), LR()), memory=self.memory), n_estimators=n_estimators, algorithm=algorithm)),
-            'ABC-TS-LASSO-SVM': ('abc-ts-lasso-svm', ABC(TSclassifier(clf=make_pipeline(
-                Lasso(alpha=0.01), SVC()), memory=self.memory), n_estimators=n_estimators, algorithm=algorithm)),
-            'ABC-TS-RFE-LDA':   ('abc-ts-rfe-lda', ABC(TSclassifier(clf=make_pipeline(
-                RFE(estimator=LDA(), n_features_to_select=self.fea_num), LDA()), memory=self.memory), n_estimators=n_estimators, algorithm=algorithm)),
-            'ABC-TS-RFE-LR':    ('abc-ts-rfe-lr', ABC(TSclassifier(clf=make_pipeline(
-                RFE(estimator=LR(), n_features_to_select=self.fea_num), LR()), memory=self.memory), n_estimators=n_estimators, algorithm=algorithm)),
-            'ABC-TS-RFE-SVM':   ('abc-ts-rfe-svm', ABC(TSclassifier(clf=make_pipeline(
-                RFE(estimator=SVC(), n_features_to_select=self.fea_num), SVC()), memory=self.memory), n_estimators=n_estimators, algorithm=algorithm)),
-            'ABC-TS-RFECV-LDA': ('abc-ts-rfecv-lda', ABC(TSclassifier(clf=make_pipeline(
-                RFECV(estimator=LDA(), step=1, cv=5, scoring='accuracy'), LDA()), memory=self.memory), n_estimators=n_estimators, algorithm=algorithm)),
-            'ABC-TS-RFECV-LR':  ('abc-ts-rfecv-lr', ABC(TSclassifier(clf=make_pipeline(
-                RFECV(estimator=LR(), step=1, cv=5, scoring='accuracy'), LR()), memory=self.memory), n_estimators=n_estimators, algorithm=algorithm)),
-            'ABC-TS-RFECV-SVM': ('abc-ts-rfecv-svm', ABC(TSclassifier(clf=make_pipeline(
-                RFECV(estimator=SVC(), step=1, cv=5, scoring='accuracy'), SVC()), memory=self.memory), n_estimators=n_estimators, algorithm=algorithm)),
-            'ABC-TS-ANOVA-K-LDA': ('abc-ts-anova-k-lda', ABC(TSclassifier(clf=make_pipeline(
-                SelectKBest(f_classif, k=self.fea_num), LDA()), memory=self.memory), n_estimators=n_estimators, algorithm=algorithm)),
-            'ABC-TS-ANOVA-K-LR':  ('abc-ts-anova-k-lr', ABC(TSclassifier(clf=make_pipeline(
-                SelectKBest(f_classif, k=self.fea_num), LR()), memory=self.memory), n_estimators=n_estimators, algorithm=algorithm)),
-            'ABC-TS-ANOVA-K-SVM': ('abc-ts-anova-k-svm', ABC(TSclassifier(clf=make_pipeline(
-                SelectKBest(f_classif, k=self.fea_num), SVC()), memory=self.memory), n_estimators=n_estimators, algorithm=algorithm)),
-            'ABC-TS-ANOVA-P-LDA': ('abc-ts-anova-p-lda', ABC(TSclassifier(clf=make_pipeline(
-                SelectPercentile(f_classif, percentile=self.fea_percent), LDA()), memory=self.memory), n_estimators=n_estimators, algorithm=algorithm)),
-            'ABC-TS-ANOVA-P-LR':  ('abc-ts-anova-p-lr', ABC(TSclassifier(clf=make_pipeline(
-                SelectPercentile(f_classif, percentile=self.fea_percent), LR()), memory=self.memory), n_estimators=n_estimators, algorithm=algorithm)),
-            'ABC-TS-ANOVA-P-SVM': ('abc-ts-anova-p-svm', ABC(TSclassifier(clf=make_pipeline(
-                SelectPercentile(f_classif, percentile=self.fea_percent), SVC()), memory=self.memory), n_estimators=n_estimators, algorithm=algorithm)),
-            'MDWM':       ('mdwm',      MDWM(domain_tradeoff=0.5, target_domain=self.target_domain)),# 本身包括迁移学习框架，仅适用于迁移学习
-            'MEKT':       ('mekt-lda',  MEKT(target_domain=self.target_domain)), # 本身包括迁移学习框架，仅适用于迁移学习
-            'MEKT-LDA':   ('mekt-lda',  MEKT(target_domain=self.target_domain, estimator=LDA())), 
-            'MEKT-LR':    ('mekt-lr',   MEKT(target_domain=self.target_domain, estimator=LR())),
-            'MEKT-SVM':   ('mekt-svm',  MEKT(target_domain=self.target_domain, estimator=SVC())),
-            'MEKT-MLP':   ('mekt-mlp',  MEKT(target_domain=self.target_domain, estimator=MLP())),
-            'MEKT-MIC-K-LDA':   ('mekt-mic-k-lda',  MEKT(target_domain=self.target_domain, estimator=LDA(), selector=SelectKBest(mutual_info_classif, k=self.fea_num))),
-            'MEKT-MIC-K-LR':    ('mekt-mic-k-lr',   MEKT(target_domain=self.target_domain, estimator=LR(), selector=SelectKBest(mutual_info_classif, k=self.fea_num))),
-            'MEKT-MIC-K-SVM':   ('mekt-mic-k-svm',  MEKT(target_domain=self.target_domain, estimator=SVC(), selector=SelectKBest(mutual_info_classif, k=self.fea_num))),
-            'MEKT-MIC-K-MLP':   ('mekt-mic-k-mlp',  MEKT(target_domain=self.target_domain, estimator=MLP(), selector=SelectKBest(mutual_info_classif, k=self.fea_num))),
-            'MEKT-MIC-P-LDA':   ('mekt-mic-p-lda',  MEKT(target_domain=self.target_domain, estimator=LDA(), selector=SelectPercentile(mutual_info_classif, percentile=self.fea_percent))),
-            'MEKT-MIC-P-LR':    ('mekt-mic-p-lr',   MEKT(target_domain=self.target_domain, estimator=LR(), selector=SelectPercentile(mutual_info_classif, percentile=self.fea_percent))),
-            'MEKT-MIC-P-SVM':   ('mekt-mic-p-svm',  MEKT(target_domain=self.target_domain, estimator=SVC(), selector=SelectPercentile(mutual_info_classif, percentile=self.fea_percent))),
-            'MEKT-MIC-P-MLP':   ('mekt-mic-p-mlp',  MEKT(target_domain=self.target_domain, estimator=MLP(), selector=SelectPercentile(mutual_info_classif, percentile=self.fea_percent))),
-            'MEKT-ANOVA-K-LDA':   ('mekt-anova-k-lda',  MEKT(target_domain=self.target_domain, estimator=LDA(), selector=SelectKBest(f_classif, k=self.fea_num))),
-            'MEKT-ANOVA-K-LR':    ('mekt-anova-k-lr',   MEKT(target_domain=self.target_domain, estimator=LR(), selector=SelectKBest(f_classif, k=self.fea_num))),
-            'MEKT-ANOVA-K-SVM':   ('mekt-anova-k-svm',  MEKT(target_domain=self.target_domain, estimator=SVC(), selector=SelectKBest(f_classif, k=self.fea_num))),
-            'MEKT-ANOVA-K-MLP':   ('mekt-anova-k-mlp',  MEKT(target_domain=self.target_domain, estimator=MLP(), selector=SelectKBest(f_classif, k=self.fea_num))),
-            'MEKT-ANOVA-P-LDA':   ('mekt-anova-p-lda',  MEKT(target_domain=self.target_domain, estimator=LDA(), selector=SelectPercentile(f_classif, percentile=self.fea_percent))),
-            'MEKT-ANOVA-P-LR':    ('mekt-anova-p-lr',   MEKT(target_domain=self.target_domain, estimator=LR(), selector=SelectPercentile(f_classif, percentile=self.fea_percent))),
-            'MEKT-ANOVA-P-SVM':   ('mekt-anova-p-svm',  MEKT(target_domain=self.target_domain, estimator=SVC(), selector=SelectPercentile(f_classif, percentile=self.fea_percent))),
-            'MEKT-ANOVA-P-MLP':   ('mekt-anova-p-mlp',  MEKT(target_domain=self.target_domain, estimator=MLP(), selector=SelectPercentile(f_classif, percentile=self.fea_percent))),
-            'MEKT-PCA-LDA':   ('mekt-pca-lda',  MEKT(target_domain=self.target_domain, estimator=LDA(), selector=PCA(n_components=0.9))),
-            'MEKT-PCA-LR':    ('mekt-pca-lr',   MEKT(target_domain=self.target_domain, estimator=LR(), selector=PCA(n_components=0.9))),
-            'MEKT-PCA-SVM':   ('mekt-pca-svm',  MEKT(target_domain=self.target_domain, estimator=SVC(), selector=PCA(n_components=0.9))),
-            'MEKT-PCA-MLP':   ('mekt-pca-mlp',  MEKT(target_domain=self.target_domain, estimator=MLP(), selector=PCA(n_components=0.9))),
-            'MEKT-LASSO-LDA':   ('mekt-lasso-lda',  MEKT(target_domain=self.target_domain, estimator=LDA(), selector=Lasso(alpha=0.01))),
-            'MEKT-LASSO-LR':    ('mekt-lasso-lr',   MEKT(target_domain=self.target_domain, estimator=LR(), selector=Lasso(alpha=0.01))),
-            'MEKT-LASSO-SVM':   ('mekt-lasso-svm',  MEKT(target_domain=self.target_domain, estimator=SVC(), selector=Lasso(alpha=0.01))),
-            'MEKT-LASSO-MLP':   ('mekt-lasso-mlp',  MEKT(target_domain=self.target_domain, estimator=MLP(), selector=Lasso(alpha=0.01))),
-            'MEKT-RFE-LDA':   ('mekt-rfe-lda',  MEKT(target_domain=self.target_domain, estimator=LDA(), selector=RFE(estimator=LR(), n_features_to_select=self.fea_num))),
-            'MEKT-RFE-LR':    ('mekt-rfe-lr',   MEKT(target_domain=self.target_domain, estimator=LR(), selector=RFE(estimator=LR(), n_features_to_select=self.fea_num))),
-            'MEKT-RFE-SVM':   ('mekt-rfe-svm',  MEKT(target_domain=self.target_domain, estimator=SVC(), selector=RFE(estimator=LR(), n_features_to_select=self.fea_num))),
-            'MEKT-RFE-MLP':   ('mekt-rfe-mlp',  MEKT(target_domain=self.target_domain, estimator=MLP(), selector=RFE(estimator=LR(), n_features_to_select=self.fea_num))),
-            'MEKT-RFECV-LDA':   ('mekt-rfecv-lda',  MEKT(target_domain=self.target_domain, estimator=LDA(), selector=RFECV(estimator=LR(), step=1, cv=5))),
-            'MEKT-RFECV-LR':    ('mekt-rfecv-lr',   MEKT(target_domain=self.target_domain, estimator=LR(), selector=RFECV(estimator=LR(), step=1, cv=5))),
-            'MEKT-RFECV-SVM':   ('mekt-rfecv-svm',  MEKT(target_domain=self.target_domain, estimator=SVC(), selector=RFECV(estimator=LR(), step=1, cv=5))),
-            'MEKT-RFECV-MLP':   ('mekt-rfecv-mlp',  MEKT(target_domain=self.target_domain, estimator=MLP(), selector=RFECV(estimator=LR(), step=1, cv=5))),
+            'NONE':               [],
+            'RKNN':               ('rknn',               RKNN(n_neighbors=5, metric='riemann')), 
+            'RKSVM':              ('rksvm',              RKSVM(C=1, metric='riemann')),
+            'ABC-MDM':            ('abc-mdm',            ABC(estimator=
+                                                         MDM(), n_estimators=n_estimators, algorithm=algorithm)),
+            'ABC-FGMDM':          ('abc-fgmdm',          ABC(estimator=
+                                                         FgMDM(), n_estimators=n_estimators, algorithm=algorithm)),
+            'ABC-TS-LDA':         ('abc-tslda',          ABC(
+                                                         TSclassifier(clf=
+                                                         LDA(solver='eigen', shrinkage='auto')), n_estimators=n_estimators, algorithm=algorithm)),
+            'ABC-TS-LR':          ('abc-tsglm',          ABC(
+                                                         TSclassifier(clf=
+                                                         LR(random_state=self.random_state)), n_estimators=n_estimators, algorithm=algorithm)),
+            'ABC-TS-GLM':         ('abc-tsglm',          ABC(
+                                                         TSclassifier(clf=
+                                                         LR(random_state=self.random_state)), n_estimators=n_estimators, algorithm=algorithm)),
+            'ABC-TS-SVM':         ('abc-tssvm',          ABC(
+                                                         TSclassifier(clf=
+                                                         SVC(C=1, kernel='linear')), n_estimators=n_estimators, algorithm=algorithm)),
+            'ABC-TS-MIC-K-LDA':   ('abc-ts-mic-k-lda',   ABC(
+                                                         TSclassifier(clf=make_pipeline(
+                                                         SelectKBest(mutual_info_classif, k=self.fea_num), 
+                                                         LDA(solver='eigen', shrinkage='auto')), memory=self.memory), n_estimators=n_estimators, algorithm=algorithm)),    
+            'ABC-TS-MIC-K-LR':    ('abc-ts-mic-k-lr',    ABC(
+                                                         TSclassifier(clf=make_pipeline(
+                                                         SelectKBest(mutual_info_classif, k=self.fea_num), 
+                                                         LR(random_state=self.random_state)), memory=self.memory), n_estimators=n_estimators, algorithm=algorithm)),
+            'ABC-TS-MIC-K-SVM':   ('abc-ts-mic-k-svm',   ABC(
+                                                         TSclassifier(clf=make_pipeline(
+                                                         SelectKBest(mutual_info_classif, k=self.fea_num), 
+                                                         SVC(C=1, kernel='linear')), memory=self.memory), n_estimators=n_estimators, algorithm=algorithm)),
+            'ABC-TS-MIC-P-LDA':   ('abc-ts-mic-p-lda',   ABC(
+                                                         TSclassifier(clf=make_pipeline(
+                                                         SelectPercentile(mutual_info_classif, percentile=self.fea_percent), 
+                                                         LDA(solver='eigen', shrinkage='auto')), memory=self.memory), n_estimators=n_estimators, algorithm=algorithm)),
+            'ABC-TS-MIC-P-LR':    ('abc-ts-mic-p-lr',    ABC(
+                                                         TSclassifier(clf=make_pipeline(
+                                                         SelectPercentile(mutual_info_classif, percentile=self.fea_percent), 
+                                                         LR(random_state=self.random_state)), memory=self.memory), n_estimators=n_estimators, algorithm=algorithm)),
+            'ABC-TS-MIC-P-SVM':   ('abc-ts-mic-p-svm',   ABC(
+                                                         TSclassifier(clf=make_pipeline(
+                                                         SelectPercentile(mutual_info_classif, percentile=self.fea_percent), 
+                                                         SVC(C=1, kernel='linear')), memory=self.memory), n_estimators=n_estimators, algorithm=algorithm)),
+            'ABC-TS-PCA-LDA':     ('abc-ts-pca-lda',     ABC(
+                                                         TSclassifier(clf=make_pipeline(
+                                                         PCA(n_components=0.9), 
+                                                         LDA(solver='eigen', shrinkage='auto')), memory=self.memory), n_estimators=n_estimators, algorithm=algorithm)),
+            'ABC-TS-PCA-LR':      ('abc-ts-pca-lr',      ABC(
+                                                         TSclassifier(clf=make_pipeline(
+                                                         PCA(n_components=0.9), 
+                                                         LR(random_state=self.random_state)), memory=self.memory), n_estimators=n_estimators, algorithm=algorithm)),
+            'ABC-TS-PCA-SVM':     ('abc-ts-pca-svm',     ABC(
+                                                         TSclassifier(clf=make_pipeline(
+                                                         PCA(n_components=0.9), 
+                                                         SVC(C=1, kernel='linear')), memory=self.memory), n_estimators=n_estimators, algorithm=algorithm)),
+            'ABC-TS-LASSO-LDA':   ('abc-ts-lasso-lda',   ABC(
+                                                         TSclassifier(clf=make_pipeline(
+                                                         Lasso(alpha=0.01), 
+                                                         LDA(solver='eigen', shrinkage='auto')), memory=self.memory), n_estimators=n_estimators, algorithm=algorithm)),
+            'ABC-TS-LASSO-LR':    ('abc-ts-lasso-lr',    ABC(
+                                                         TSclassifier(clf=make_pipeline(
+                                                         Lasso(alpha=0.01), 
+                                                         LR(random_state=self.random_state)), memory=self.memory), n_estimators=n_estimators, algorithm=algorithm)),
+            'ABC-TS-LASSO-SVM':   ('abc-ts-lasso-svm',   ABC(
+                                                         TSclassifier(clf=make_pipeline(
+                                                         Lasso(alpha=0.01), 
+                                                         SVC(C=1, kernel='linear')), memory=self.memory), n_estimators=n_estimators, algorithm=algorithm)),
+            'ABC-TS-RFE-LDA':     ('abc-ts-rfe-lda',     ABC(
+                                                         TSclassifier(clf=make_pipeline(
+                                                         RFE(estimator=LDA(solver='eigen', shrinkage='auto'), n_features_to_select=self.fea_num), 
+                                                         LDA(solver='eigen', shrinkage='auto')), memory=self.memory), n_estimators=n_estimators, algorithm=algorithm)),
+            'ABC-TS-RFE-LR':      ('abc-ts-rfe-lr',      ABC(
+                                                         TSclassifier(clf=make_pipeline(
+                                                         RFE(estimator=LR(random_state=self.random_state), n_features_to_select=self.fea_num), 
+                                                         LR(random_state=self.random_state)), memory=self.memory), n_estimators=n_estimators, algorithm=algorithm)),
+            'ABC-TS-RFE-SVM':     ('abc-ts-rfe-svm',     ABC(
+                                                         TSclassifier(clf=make_pipeline(
+                                                         RFE(estimator=SVC(C=1, kernel='linear'), n_features_to_select=self.fea_num), 
+                                                         SVC(C=1, kernel='linear')), memory=self.memory), n_estimators=n_estimators, algorithm=algorithm)),
+            'ABC-TS-RFECV-LDA':   ('abc-ts-rfecv-lda',   ABC(
+                                                         TSclassifier(clf=make_pipeline(
+                                                         RFECV(estimator=LDA(solver='eigen', shrinkage='auto'), step=1, cv=5, scoring='accuracy'), 
+                                                         LDA(solver='eigen', shrinkage='auto')), memory=self.memory), n_estimators=n_estimators, algorithm=algorithm)),
+            'ABC-TS-RFECV-LR':    ('abc-ts-rfecv-lr',    ABC(
+                                                         TSclassifier(clf=make_pipeline(
+                                                         RFECV(estimator=LR(random_state=self.random_state), step=1, cv=5, scoring='accuracy'), 
+                                                         LR(random_state=self.random_state)), memory=self.memory), n_estimators=n_estimators, algorithm=algorithm)),
+            'ABC-TS-RFECV-SVM':   ('abc-ts-rfecv-svm',   ABC(
+                                                         TSclassifier(clf=make_pipeline(
+                                                         RFECV(estimator=SVC(C=1, kernel='linear'), step=1, cv=5, scoring='accuracy'), 
+                                                         SVC(C=1, kernel='linear')), memory=self.memory), n_estimators=n_estimators, algorithm=algorithm)),
+            'ABC-TS-ANOVA-K-LDA': ('abc-ts-anova-k-lda', ABC(
+                                                         TSclassifier(clf=make_pipeline(
+                                                         SelectKBest(f_classif, k=self.fea_num), 
+                                                         LDA(solver='eigen', shrinkage='auto')), memory=self.memory), n_estimators=n_estimators, algorithm=algorithm)),
+            'ABC-TS-ANOVA-K-LR':  ('abc-ts-anova-k-lr',  ABC(
+                                                         TSclassifier(clf=make_pipeline(
+                                                         SelectKBest(f_classif, k=self.fea_num), 
+                                                         LR(random_state=self.random_state)), memory=self.memory), n_estimators=n_estimators, algorithm=algorithm)),
+            'ABC-TS-ANOVA-K-SVM': ('abc-ts-anova-k-svm', ABC(
+                                                         TSclassifier(clf=make_pipeline(
+                                                         SelectKBest(f_classif, k=self.fea_num), 
+                                                         SVC(C=1, kernel='linear')), memory=self.memory), n_estimators=n_estimators, algorithm=algorithm)),
+            'ABC-TS-ANOVA-P-LDA': ('abc-ts-anova-p-lda', ABC(
+                                                         TSclassifier(clf=make_pipeline(
+                                                         SelectPercentile(f_classif, percentile=self.fea_percent), 
+                                                         LDA(solver='eigen', shrinkage='auto')), memory=self.memory), n_estimators=n_estimators, algorithm=algorithm)),
+            'ABC-TS-ANOVA-P-LR':  ('abc-ts-anova-p-lr',  ABC(
+                                                         TSclassifier(clf=make_pipeline(
+                                                         SelectPercentile(f_classif, percentile=self.fea_percent), 
+                                                         LR(random_state=self.random_state)), memory=self.memory), n_estimators=n_estimators, algorithm=algorithm)),
+            'ABC-TS-ANOVA-P-SVM': ('abc-ts-anova-p-svm', ABC(
+                                                         TSclassifier(clf=make_pipeline(
+                                                         SelectPercentile(f_classif, percentile=self.fea_percent), 
+                                                         SVC(C=1, kernel='linear')), memory=self.memory), n_estimators=n_estimators, algorithm=algorithm)),
+            'MDWM':               ('mdwm',               MDWM(domain_tradeoff=0.5, target_domain=self.target_domain)),# 本身包括迁移学习框架，仅适用于迁移学习
+            'MEKT':               ('mekt-lda',           MEKT(target_domain=self.target_domain)), # 本身包括迁移学习框架，仅适用于迁移学习
+            'MEKT-LDA':           ('mekt-lda',           MEKT(target_domain=self.target_domain, estimator=LDA(solver='eigen', shrinkage='auto'))), 
+            'MEKT-LR':            ('mekt-lr',            MEKT(target_domain=self.target_domain, estimator=LR(random_state=self.random_state))),
+            'MEKT-SVM':           ('mekt-svm',           MEKT(target_domain=self.target_domain, estimator=SVC(C=1, kernel='linear'))),
+            'MEKT-MLP':           ('mekt-mlp',           MEKT(target_domain=self.target_domain, estimator=MLP(max_iter=1000, random_state=self.random_state))),
+            'MEKT-MIC-K-LDA':     ('mekt-mic-k-lda',     MEKT(target_domain=self.target_domain, estimator=LDA(solver='eigen', shrinkage='auto'), selector=SelectKBest(mutual_info_classif, k=self.fea_num))),
+            'MEKT-MIC-K-LR':      ('mekt-mic-k-lr',      MEKT(target_domain=self.target_domain, estimator=LR(random_state=self.random_state), selector=SelectKBest(mutual_info_classif, k=self.fea_num))),
+            'MEKT-MIC-K-SVM':     ('mekt-mic-k-svm',     MEKT(target_domain=self.target_domain, estimator=SVC(C=1, kernel='linear'), selector=SelectKBest(mutual_info_classif, k=self.fea_num))),
+            'MEKT-MIC-K-MLP':     ('mekt-mic-k-mlp',     MEKT(target_domain=self.target_domain, estimator=MLP(max_iter=1000, random_state=self.random_state), selector=SelectKBest(mutual_info_classif, k=self.fea_num))),
+            'MEKT-MIC-P-LDA':     ('mekt-mic-p-lda',     MEKT(target_domain=self.target_domain, estimator=LDA(solver='eigen', shrinkage='auto'), selector=SelectPercentile(mutual_info_classif, percentile=self.fea_percent))),
+            'MEKT-MIC-P-LR':      ('mekt-mic-p-lr',      MEKT(target_domain=self.target_domain, estimator=LR(random_state=self.random_state), selector=SelectPercentile(mutual_info_classif, percentile=self.fea_percent))),
+            'MEKT-MIC-P-SVM':     ('mekt-mic-p-svm',     MEKT(target_domain=self.target_domain, estimator=SVC(C=1, kernel='linear'), selector=SelectPercentile(mutual_info_classif, percentile=self.fea_percent))),
+            'MEKT-MIC-P-MLP':     ('mekt-mic-p-mlp',     MEKT(target_domain=self.target_domain, estimator=MLP(max_iter=1000, random_state=self.random_state), selector=SelectPercentile(mutual_info_classif, percentile=self.fea_percent))),
+            'MEKT-ANOVA-K-LDA':   ('mekt-anova-k-lda',   MEKT(target_domain=self.target_domain, estimator=LDA(solver='eigen', shrinkage='auto'), selector=SelectKBest(f_classif, k=self.fea_num))),
+            'MEKT-ANOVA-K-LR':    ('mekt-anova-k-lr',    MEKT(target_domain=self.target_domain, estimator=LR(random_state=self.random_state), selector=SelectKBest(f_classif, k=self.fea_num))),
+            'MEKT-ANOVA-K-SVM':   ('mekt-anova-k-svm',   MEKT(target_domain=self.target_domain, estimator=SVC(C=1, kernel='linear'), selector=SelectKBest(f_classif, k=self.fea_num))),
+            'MEKT-ANOVA-K-MLP':   ('mekt-anova-k-mlp',   MEKT(target_domain=self.target_domain, estimator=MLP(max_iter=1000, random_state=self.random_state), selector=SelectKBest(f_classif, k=self.fea_num))),
+            'MEKT-ANOVA-P-LDA':   ('mekt-anova-p-lda',   MEKT(target_domain=self.target_domain, estimator=LDA(solver='eigen', shrinkage='auto'), selector=SelectPercentile(f_classif, percentile=self.fea_percent))),
+            'MEKT-ANOVA-P-LR':    ('mekt-anova-p-lr',    MEKT(target_domain=self.target_domain, estimator=LR(random_state=self.random_state), selector=SelectPercentile(f_classif, percentile=self.fea_percent))),
+            'MEKT-ANOVA-P-SVM':   ('mekt-anova-p-svm',   MEKT(target_domain=self.target_domain, estimator=SVC(C=1, kernel='linear'), selector=SelectPercentile(f_classif, percentile=self.fea_percent))),
+            'MEKT-ANOVA-P-MLP':   ('mekt-anova-p-mlp',   MEKT(target_domain=self.target_domain, estimator=MLP(max_iter=1000, random_state=self.random_state), selector=SelectPercentile(f_classif, percentile=self.fea_percent))),
+            'MEKT-PCA-LDA':       ('mekt-pca-lda',       MEKT(target_domain=self.target_domain, estimator=LDA(solver='eigen', shrinkage='auto'), selector=PCA(n_components=0.9))),
+            'MEKT-PCA-LR':        ('mekt-pca-lr',        MEKT(target_domain=self.target_domain, estimator=LR(random_state=self.random_state), selector=PCA(n_components=0.9))),
+            'MEKT-PCA-SVM':       ('mekt-pca-svm',       MEKT(target_domain=self.target_domain, estimator=SVC(C=1, kernel='linear'), selector=PCA(n_components=0.9))),
+            'MEKT-PCA-MLP':       ('mekt-pca-mlp',       MEKT(target_domain=self.target_domain, estimator=MLP(max_iter=1000, random_state=self.random_state), selector=PCA(n_components=0.9))),
+            'MEKT-LASSO-LDA':     ('mekt-lasso-lda',     MEKT(target_domain=self.target_domain, estimator=LDA(solver='eigen', shrinkage='auto'), selector=Lasso(alpha=0.01))),
+            'MEKT-LASSO-LR':      ('mekt-lasso-lr',      MEKT(target_domain=self.target_domain, estimator=LR(random_state=self.random_state), selector=Lasso(alpha=0.01))),
+            'MEKT-LASSO-SVM':     ('mekt-lasso-svm',     MEKT(target_domain=self.target_domain, estimator=SVC(C=1, kernel='linear'), selector=Lasso(alpha=0.01))),
+            'MEKT-LASSO-MLP':     ('mekt-lasso-mlp',     MEKT(target_domain=self.target_domain, estimator=MLP(max_iter=1000, random_state=self.random_state), selector=Lasso(alpha=0.01))),
+            'MEKT-RFE-LDA':       ('mekt-rfe-lda',       MEKT(target_domain=self.target_domain, estimator=LDA(solver='eigen', shrinkage='auto'), selector=RFE(estimator=LR(random_state=self.random_state), n_features_to_select=self.fea_num))),
+            'MEKT-RFE-LR':        ('mekt-rfe-lr',        MEKT(target_domain=self.target_domain, estimator=LR(random_state=self.random_state), selector=RFE(estimator=LR(random_state=self.random_state), n_features_to_select=self.fea_num))),
+            'MEKT-RFE-SVM':       ('mekt-rfe-svm',       MEKT(target_domain=self.target_domain, estimator=SVC(C=1, kernel='linear'), selector=RFE(estimator=LR(random_state=self.random_state), n_features_to_select=self.fea_num))),
+            'MEKT-RFE-MLP':       ('mekt-rfe-mlp',       MEKT(target_domain=self.target_domain, estimator=MLP(max_iter=1000, random_state=self.random_state), selector=RFE(estimator=LR(random_state=self.random_state), n_features_to_select=self.fea_num))),
+            'MEKT-RFECV-LDA':     ('mekt-rfecv-lda',     MEKT(target_domain=self.target_domain, estimator=LDA(solver='eigen', shrinkage='auto'), selector=RFECV(estimator=LR(random_state=self.random_state), step=1, cv=5))),
+            'MEKT-RFECV-LR':      ('mekt-rfecv-lr',      MEKT(target_domain=self.target_domain, estimator=LR(random_state=self.random_state), selector=RFECV(estimator=LR(random_state=self.random_state), step=1, cv=5))),
+            'MEKT-RFECV-SVM':     ('mekt-rfecv-svm',     MEKT(target_domain=self.target_domain, estimator=SVC(C=1, kernel='linear'), selector=RFECV(estimator=LR(random_state=self.random_state), step=1, cv=5))),
+            'MEKT-RFECV-MLP':     ('mekt-rfecv-mlp',     MEKT(target_domain=self.target_domain, estimator=MLP(max_iter=1000, random_state=self.random_state), selector=RFECV(estimator=LR(random_state=self.random_state), step=1, cv=5))),
         }
         if callable(est):
             pass

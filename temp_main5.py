@@ -26,7 +26,7 @@ datapath = r'E:\工作进展\小论文2023会议\数据处理python\datasets'
 dataset = Dataset_Left_Right_MI(dataset_name,fs,fmin=freqband[0],fmax=freqband[1],tmin=0,tmax=4,path=datapath)
 
 # 设置交叉验证
-cv = StratifiedShuffleSplit(n_splits=5, random_state=42) #可以控制训练集的数量
+cv = StratifiedShuffleSplit(n_splits=10, random_state=42) #可以控制训练集的数量
 # cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
 train_size = 0
 print(f"Train size: {train_size}")
