@@ -1,6 +1,6 @@
 
 import numpy as np
-from sklearn.base import ClassifierMixin, is_classifier
+from sklearn.base import is_classifier
 
 from pyriemann.tangentspace import TangentSpace, FGDA
 from pyriemann.classification import FgMDM, MDM, TSclassifier

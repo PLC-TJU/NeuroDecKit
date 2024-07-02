@@ -235,7 +235,7 @@ class TL_Classifier(BaseEstimator, ClassifierMixin):
                 callable function""" % (clf, (' , ').join(classifiers.keys())))
         return clf
     
-    def check_endest(self, est, n_estimators=50, algorithm='SAMME'):
+    def check_endest(self, est, n_estimators=100, algorithm='SAMME'):
         est = 'None' if est is None else est
         estimators = {
             'NONE':               [],
@@ -248,7 +248,7 @@ class TL_Classifier(BaseEstimator, ClassifierMixin):
             'ABC-TS-LDA':         ('abc-tslda',          ABC(
                                                          TSclassifier(clf=
                                                          LDA(solver='eigen', shrinkage='auto')), n_estimators=n_estimators, algorithm=algorithm)),
-            'ABC-TS-LR':          ('abc-tslr',          ABC(
+            'ABC-TS-LR':          ('abc-tslr',           ABC(
                                                          TSclassifier(clf=
                                                          LR(random_state=self.random_state)), n_estimators=n_estimators, algorithm=algorithm)),
             'ABC-TS-SVM':         ('abc-tssvm',          ABC(

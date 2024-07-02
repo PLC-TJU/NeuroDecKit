@@ -8,16 +8,15 @@ import numpy as np
 from numpy import ndarray
 from copy import deepcopy
 from scipy.signal import  iircomb, butter, filtfilt
-from sklearn.base import clone, BaseEstimator, ClassifierMixin, TransformerMixin
+from sklearn.base import clone, BaseEstimator, ClassifierMixin
 from sklearn.pipeline import make_pipeline, Pipeline
 from sklearn.svm import SVC
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis as LDA
 from pyriemann.estimation import Covariances
 from . import RiemannCSP as CSP
 from . import MDM, FgMDM, TS, TRCA, DCPM, MIBIF
-from ..transfer_learning import encode_domains, TLDummy, TLCenter, TLStretch, TLRotate, TLClassifier
-
-from func import split_eeg
+from transfer_learning.base import TLClassifier
+from pyriemann.transfer import encode_domains, TLDummy, TLCenter, TLStretch, TLRotate
 
 import warnings
 warnings.filterwarnings('ignore')

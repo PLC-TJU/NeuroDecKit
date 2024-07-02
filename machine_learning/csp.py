@@ -4,13 +4,20 @@
 
 import numpy as np
 from scipy.linalg import eigh
+from scipy import linalg
+
+from sklearn.svm import SVC
+from sklearn.pipeline import make_pipeline
+from sklearn.model_selection import GridSearchCV, StratifiedKFold
+from sklearn.feature_selection import SelectKBest, mutual_info_classif
+
 from pyriemann.utils.mean import mean_covariance
 from pyriemann.utils.ajd import ajd_pham
 from pyriemann.utils.utils import check_weights
-from scipy import linalg
 from pyriemann.spatialfilters import CSP
 from moabb.pipelines.csp import TRCSP
-from metabci.brainda.algorithms.decomposition import FBCSP as FBCSP_metabci
+
+from .cca import FilterBank
 from utils import generate_intervals, adjust_intervals
 from . import generate_filterbank
 
@@ -162,7 +169,7 @@ class TRCSP_weighted(TRCSP):
 
         return self
 
-class FBCSP(FBCSP_metabci):
+class FBCSP(FilterBank):
     """
     Filter-Bank CSP (FBCSP) algorithm.
     """
@@ -201,3 +208,41 @@ class FBCSP(FBCSP_metabci):
     def __repr__(self):
         return f"FBCSP(fs={self.fs}, nfilter={self.nfilter}, banks={self.banks}, " \
                f"n_components_select={self.n_components_select})"
+    
+    def fit(self, X: ndarray, y: ndarray):  # type: ignore[override]
+        super().fit(X, y)
+        features = super().transform(X)
+        if self.n_mutualinfo_components is None:
+            estimator = make_pipeline(
+                *[SelectKBest(score_func=mutual_info_classif, k="all"), SVC()]
+            )
+            params = {"selectkbest__k": np.arange(1, features.shape[1] + 1)}
+
+            n_splits = np.min(np.unique(y, return_counts=True)[1])
+            n_splits = 5 if n_splits > 5 else n_splits
+
+            gs = GridSearchCV(
+                estimator,
+                param_grid=params,
+                scoring="accuracy",
+                cv=StratifiedKFold(n_splits=n_splits, shuffle=True),
+                refit=False,
+                n_jobs=-1,
+                verbose=False,
+            )
+            gs.fit(features, y)
+            self.best_n_mutualinfo_components_ = gs.best_params_["selectkbest__k"]
+            self.selector_ = SelectKBest(
+                score_func=mutual_info_classif, k=self.best_n_mutualinfo_components_
+            )
+        else:
+            self.selector_ = SelectKBest(
+                score_func=mutual_info_classif, k=self.n_mutualinfo_components
+            )
+        self.selector_.fit(features, y)
+        return self
+
+    def transform(self, X: ndarray):  # type: ignore[override]
+        features = super().transform(X)
+        features = self.selector_.transform(features)
+        return features

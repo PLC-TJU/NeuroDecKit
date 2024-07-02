@@ -1,6 +1,7 @@
 # This file is used to load the dataset and preprocess the data. 
 # Authors: Pan.LC <panlincong@tju.edu.cn>
 # Date: 2024/4/7
+# License: MIT
 
 # more datasets: https://github.com/NeuroTechX/moabb/tree/master/moabb/datasets
 # dataset information: https://neurotechx.github.io/moabb/dataset_summary.html

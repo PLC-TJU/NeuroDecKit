@@ -1,7 +1,28 @@
 
-
+from typing import List, Tuple, Optional
 from sklearn.pipeline import Pipeline
 from inspect import signature
+from pyriemann.utils.geodesic import geodesic
+from pyriemann.utils.base import invsqrtm
+from scipy.signal import cheby1, cheb1ord
+
+def generate_filterbank(
+    passbands: List[Tuple[float, float]],
+    stopbands: List[Tuple[float, float]],
+    srate: int,
+    order: Optional[int] = None,
+    rp: float = 0.5,
+):
+    filterbank = []
+    for wp, ws in zip(passbands, stopbands):
+        if order is None:
+            N, wn = cheb1ord(wp, ws, 3, 40, fs=srate)
+            sos = cheby1(N, rp, wn, btype="bandpass", output="sos", fs=srate)
+        else:
+            sos = cheby1(order, rp, wp, btype="bandpass", output="sos", fs=srate)
+
+        filterbank.append(sos)
+    return filterbank
 
 def chesk_sample_weight(clf):
     if isinstance(clf, Pipeline):
@@ -11,8 +32,6 @@ def chesk_sample_weight(clf):
         params = signature(fit_method).parameters
         return 'sample_weight' in params
 
-from pyriemann.utils.geodesic import geodesic
-from pyriemann.utils.base import invsqrtm
 def recursive_reference_center(reference_old, X_new, alpha, metric='riemann'):
     """Recursive reference centering.
 

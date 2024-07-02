@@ -1,19 +1,150 @@
 # -*- coding: utf-8 -*-
 # DSP: Discriminal Spatial Patterns
 # Authors: Swolf <swolfforever@gmail.com>
-#          Junyang Wang <2144755928@qq.com>
-# Last update date: 2022-8-11
 # License: MIT License
 
+import numpy as np
+from numpy import ndarray
 from typing import Optional, List, Tuple
 from itertools import combinations
-import numpy as np
-from scipy.linalg import eigh
-from numpy import ndarray
+from scipy.linalg import eigh, solve
 from sklearn.base import BaseEstimator, TransformerMixin, ClassifierMixin
-from metabci.brainda.algorithms.utils.covariance import nearestPD
-from metabci.brainda.algorithms.decomposition.base import robust_pattern
-from metabci.brainda.algorithms.decomposition.cca import FilterBankSSVEP
+from .cca import FilterBank
+
+def isPD(B: ndarray) -> bool:
+    """Returns true when input matrix is positive-definite, via Cholesky decompositon method.
+
+    Parameters
+    ----------
+    B : ndarray
+        Any matrix, shape (N, N)
+
+    Returns
+    -------
+    bool
+        True if B is positve-definite.
+
+    Notes
+    -----
+        Use numpy.linalg rather than scipy.linalg. In this case, scipy.linalg has unpredictable behaviors.
+    """
+
+    try:
+        _ = np.linalg.cholesky(B)
+        return True
+    except np.linalg.LinAlgError:
+        return False
+
+def nearestPD(A: ndarray) -> ndarray:
+    """Find the nearest positive-definite matrix to input.
+
+    Parameters
+    ----------
+    A : ndarray
+        Any square matrxi, shape (N, N)
+
+    Returns
+    -------
+    A3 : ndarray
+        positive-definite matrix to A
+
+    Notes
+    -----
+    A Python/Numpy port of John D'Errico's `nearestSPD` MATLAB code [1]_, which
+    origins at [2]_.
+
+    References
+    ----------
+    .. [1] https://www.mathworks.com/matlabcentral/fileexchange/42885-nearestspd
+    .. [2] N.J. Higham, "Computing a nearest symmetric positive semidefinite matrix" (1988):
+           https://doi.org/10.1016/0024-3795(88)90223-6
+    """
+
+    B = (A + A.T) / 2
+    _, s, V = np.linalg.svd(B)
+
+    H = np.dot(V.T, np.dot(np.diag(s), V))
+
+    A2 = (B + H) / 2
+
+    A3 = (A2 + A2.T) / 2
+
+    if isPD(A3):
+        return A3
+
+    print("Replace current matrix with the nearest positive-definite matrix.")
+
+    spacing = np.spacing(np.linalg.norm(A))
+    # The above is different from [1]. It appears that MATLAB's `chol` Cholesky
+    # decomposition will accept matrixes with exactly 0-eigenvalue, whereas
+    # Numpy's will not. So where [1] uses `eps(mineig)` (where `eps` is Matlab
+    # for `numpy.spacing`), we use the above definition. CAVEAT: our `spacing`
+    # will be much larger than [1]'s `eps(mineig)`, since `mineig` is usually on
+    # the order of 1e-16, and `eps(1e-16)` is on the order of 1e-34, whereas
+    # `spacing` will, for Gaussian random matrixes of small dimension, be on
+    # othe order of 1e-16. In practice, both ways converge, as the unit test
+    # below suggests.
+    eye = np.eye(A.shape[0])
+    k = 1
+    while not isPD(A3):
+        mineig = np.min(np.real(np.linalg.eigvals(A3)))
+        A3 += eye * (-mineig * k**2 + spacing)
+        k += 1
+
+    return A3
+
+def robust_pattern(W: ndarray, Cx: ndarray, Cs: ndarray) -> ndarray:
+    """Transform spatial filters to spatial patterns based on paper [1]_.
+
+    Parameters
+    ----------
+    W : ndarray
+        Spatial filters, shape (n_channels, n_filters).
+    Cx : ndarray
+        Covariance matrix of eeg data, shape (n_channels, n_channels).
+    Cs : ndarray
+        Covariance matrix of source data, shape (n_channels, n_channels).
+
+    Returns
+    -------
+    A : ndarray
+        Spatial patterns, shape (n_channels, n_patterns), each column is a spatial pattern.
+
+    References
+    ----------
+    .. [1] Haufe, Stefan, et al. "On the interpretation of weight vectors of linear models in multivariate neuroimaging."
+           Neuroimage 87 (2014): 96-110.
+    """
+    # use linalg.solve instead of inv, makes it more stable
+    # see https://github.com/robintibor/fbcsp/blob/master/fbcsp/signalproc.py
+    # and https://ww2.mathworks.cn/help/matlab/ref/mldivide.html
+    A = solve(Cs.T, np.dot(Cx, W).T).T
+    return A
+
+class FilterBankSSVEP(FilterBank):
+    """Filter bank analysis for SSVEP."""
+
+    def __init__(
+        self,
+        filterbank: List[ndarray],
+        base_estimator: BaseEstimator,
+        filterweights: Optional[ndarray] = None,
+        n_jobs: Optional[int] = None,
+    ):
+        self.filterweights = filterweights
+        super().__init__(base_estimator, filterbank, n_jobs=n_jobs)
+
+    def transform(self, X: ndarray):  # type: ignore[override]
+        features = super().transform(X)
+        if self.filterweights is None:
+            return features
+        else:
+            features = np.reshape(
+                features, (features.shape[0], len(self.filterbank), -1)
+            )
+            return np.sum(
+                features * self.filterweights[np.newaxis, :, np.newaxis], axis=1
+            )
 
 def xiang_dsp_kernel(
     X: ndarray, y: ndarray
@@ -446,12 +577,6 @@ class DCPM(DSP, ClassifierMixin):
     """
     DCPM: discriminative canonical pattern matching [1]_.
 
-    Author: Junyang Wang <2144755928@qq.com>
-
-    Create on: 2022-6-26
-
-    Update log:
-
     Parameters
     ----------
     n_components : int
@@ -487,25 +612,6 @@ class DCPM(DSP, ClassifierMixin):
     .. [1]	Xu MP, Xiao XL, Wang YJ, et al. A brain-computer interface based on miniature-event-related
         potentials induced by very small lateral visual stimuli[J]. IEEE Transactions on Biomedical
         Engineering, 2018:65(5), 1166-1175.
-
-    Tip
-    ----
-    .. code-block:: python
-       :linenos:
-       :emphasize-lines: 2
-       :caption: An example using DCPM
-
-       from brainda.algorithms.decomposition.dsp import DCPM
-       X = np.array(data.get(‘X’))     #data(n_trials, n_channels, n_times)
-       y = data.get(‘Y’)               #labels(n_trials)
-       estimator = DCPM(n_components=2,transform_method=’corr’, n_rpts=1)
-       accs = []
-       # use ‘fit’ to get the model of train data;
-       # use ‘predict’ to get the prediction labels of test data;
-       p_labels=estimator.fit(X[train_ind], y[train_ind]).predict(X[test_ind])
-       accs.append(np.mean(p_labels==y[test_ind]))
-       print(np.mean(accs))
-
 
     See Also
     ----------

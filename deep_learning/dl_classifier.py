@@ -2,7 +2,7 @@
 DeepL_Classifier: Deep Learning Classifier for EEG Data
 Author: Pan.LC <coreylin2023@outlook.com>
 Date: 2024/3/14
-License: MIT License
+License: All rights reserved
 
 Introduction:
 The DeepL_Classifier is a Python class designed to facilitate the training and evaluation of various deep 

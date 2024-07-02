@@ -18,11 +18,6 @@ from pyriemann.utils.distance import distance
 from pyriemann.utils.base import invsqrtm, powm, sqrtm
 from pyriemann.utils.covariance import covariances
 from pyriemann.transfer._rotate import _get_rotation_matrix
-from pyriemann.transfer import TLCenter, TLStretch, TLRotate
-from pyriemann.preprocessing import Whitening
-# from metabci.brainda.algorithms.manifold import (
-#     get_recenter, get_rescale, get_rotate, recenter, rescale, rotate)
-
 from machine_learning.base import recursive_reference_center
 
 # recenter

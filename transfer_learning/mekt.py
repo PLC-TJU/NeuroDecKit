@@ -3,18 +3,94 @@ modified from metabci.brainda.algorithms.transfer_learning.mekt.py
 by LC.Pan at 2024-06-23
 """
 import numpy as np
-from sklearn.base import BaseEstimator, ClassifierMixin, TransformerMixin
+from sklearn.base import BaseEstimator, ClassifierMixin
 from sklearn.metrics import accuracy_score
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis as LDA
 from sklearn.preprocessing import OneHotEncoder
 from scipy.linalg import block_diag, eigh
+from scipy.spatial.distance import pdist, squareform
 from pyriemann.utils import mean_covariance
 from pyriemann.utils.base import invsqrtm
 from pyriemann.utils.tangentspace import tangent_space
 from pyriemann.utils.utils import check_weights
 from transfer_learning import decode_domains
-from metabci.brainda.algorithms.transfer_learning.mekt import (
-    source_discriminability, graph_laplacian)
+
+def source_discriminability(Xs, ys):
+    """Source features discriminability.
+
+    Parameters
+    ----------
+    Xs : ndarray
+        source features, shape (n_trials, n_features)
+    ys : ndarray
+        labels, shape (n_trials)
+
+    Returns
+    -------
+    Sw: ndarray
+        within-class scatter matrix, shape (n_features, n_features)
+    Sb: ndarray
+        between-class scatter matrix, shape (n_features, n_features)
+    """
+    classes = np.unique(ys)
+    n_samples, n_features = Xs.shape
+    Sw = np.zeros((n_features, n_features))
+    Sb = np.zeros((n_features, n_features))
+
+    mean_total = np.mean(Xs, axis=0, keepdims=True)
+
+    for c in classes:
+        Xi = Xs[ys == c, :]
+        mean_class = np.mean(Xi, axis=0, keepdims=True)
+        Sw = Sw + (Xi - mean_class).T @ (Xi - mean_class)
+        Sb = Sb + (mean_class.T - mean_total.T) @ (mean_class - mean_total) * len(Xi)
+
+    return Sw, Sb
+
+
+def graph_laplacian(Xs, k=10, t=1):
+    """Graph Laplacian Matrix.
+
+    Currently with heat kernel implemented.
+
+    Parameters
+    ----------
+    Xs : ndarray
+        features, shape (n_trials, n_samples)
+    k : int, optional
+        k nearest neighbors, by default 10
+    t : int, optional
+        heat kernel parameter, by default 1
+
+    Returns
+    -------
+    L: ndarray
+        unnormalized laplacian kernel, shape (n_trials, n_trials)
+    D: ndarray
+        degree matrix, L = D - W, shape (n_trials, n_trials)
+    """
+
+    # compute pairwise distance
+    pair_dist = squareform(pdist(Xs, metric="euclidean"))
+
+    # knn
+    # MEKT has self-connection, W[0,0] = 1
+    ix = np.argsort(pair_dist, axis=-1)[:, : k + 1]
+
+    # heat kernel
+    heat_W = np.exp(-np.square(pair_dist) / (2 * np.square(t)))
+    W = np.zeros((Xs.shape[0], Xs.shape[0]))
+
+    for i, ind in enumerate(ix):
+        W[i, ind] = heat_W[i, ind]
+
+    W = np.maximum(W, W.T)
+
+    D = np.diag(np.sum(W, axis=-1))
+    L = D - W
+
+    return L, D
+
 
 def mekt_feature(X, sample_weight=None, metric='riemann'):
     """Covariance Matrix Centroid Alignment and Tangent Space Feature Extraction.
@@ -213,7 +289,7 @@ class MEKT(BaseEstimator, ClassifierMixin): #有监督的迁移学习方法
     def __init__(
         self,
         target_domain,
-        subspace_dim: int = 10,
+        subspace_dim: int = 20,
         max_iter: int = 5,
         alpha: float = 0.01,
         beta: float = 0.1,

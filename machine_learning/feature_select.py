@@ -7,7 +7,6 @@
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.feature_selection import mutual_info_classif
 from sklearn.linear_model import Lasso
-from sklearn.decomposition import PCA
 import numpy as np
 from numpy import ndarray
 import math

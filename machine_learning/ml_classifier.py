@@ -2,7 +2,7 @@
 ML_Classifier: Traditional Machine Learning Classifier for EEG Data
 Author: Pan.LC <coreylin2023@outlook.com>
 Date: 2024/3/25
-License: MIT License
+License: All rights reserved
 
 备注：
 1. 该文件是机器学习分类器的实现，包括CSP、LDA、SVM、FBCSP、SBLEST、TRCA等分类器。
@@ -17,7 +17,6 @@ from sklearn.base import BaseEstimator, ClassifierMixin
 from sklearn.metrics import accuracy_score
 from sklearn.pipeline import make_pipeline, Pipeline
 from sklearn.model_selection import GridSearchCV
-from sklearn.ensemble import StackingClassifier
 from sklearn.svm import SVC
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis as LDA
 from sklearn.feature_selection import SelectKBest, mutual_info_classif
@@ -31,7 +30,6 @@ from . import generate_filterbank
 from pre_processing.rsf import RSF
 from utils import generate_intervals, adjust_intervals
 from deep_learning.format_data import Formatdata
-
 
 
 class ML_Classifier(BaseEstimator, ClassifierMixin): 
