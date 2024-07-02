@@ -26,7 +26,7 @@ from . import Kernels as Ker
 from . import Shrinkage as Shr
 from . import (FB, FBCSP, FBTRCA, DSP, FBDSP, DCPM,
                MDM, FgMDM, TS, TSclassifier, RKSVM, TRCA, SBLEST, TRCSP)
-from . import generate_filterbank
+from .base import generate_filterbank
 from pre_processing.rsf import RSF
 from utils import generate_intervals, adjust_intervals
 from deep_learning.format_data import Formatdata

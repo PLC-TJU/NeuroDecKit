@@ -3,23 +3,23 @@
 # add sample_weight parameter to compute class means with weighted covariance matrices
 
 import numpy as np
+from numpy import ndarray
 from scipy.linalg import eigh
 from scipy import linalg
-
 from sklearn.svm import SVC
 from sklearn.pipeline import make_pipeline
 from sklearn.model_selection import GridSearchCV, StratifiedKFold
 from sklearn.feature_selection import SelectKBest, mutual_info_classif
-
 from pyriemann.utils.mean import mean_covariance
 from pyriemann.utils.ajd import ajd_pham
 from pyriemann.utils.utils import check_weights
 from pyriemann.spatialfilters import CSP
 from moabb.pipelines.csp import TRCSP
 
-from .cca import FilterBank
 from utils import generate_intervals, adjust_intervals
-from . import generate_filterbank
+from .cca import FilterBank
+from .base import generate_filterbank
+
 
 class CSP_weighted(CSP):
     def fit(self, X, y, sample_weight=None):

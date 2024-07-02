@@ -22,63 +22,9 @@ from .sblest import SBLEST_model as SBLEST
 from .feature_select import MutualInformationSelector as MIBIF
 from .feature_select import LassoFeatureSelector as LassoSelector
 
-from .base import generate_filterbank
 from .base import recursive_reference_center, chesk_sample_weight
 
-__all__ = [
-    'CSP',
-    'MultiCSP',
-    'FBCSP',
-    'FBMultiCSP',
-    'SPoC',
-    'SSCOR',
-    'FBSSCOR',
-    'FilterBankSSVEP',
-    'SCCA',
-    'FBSCCA',
-    'ItCCA',
-    'FBItCCA',
-    'MsCCA',
-    'FBMsCCA',
-    'ECCA',
-    'FBECCA',
-    'TtCCA',
-    'FBTtCCA',
-    'MsetCCA',
-    'FBMsetCCA',
-    'MsetCCAR',
-    'FBMsetCCAR',
-    'TRCA',
-    'FBTRCA',
-    'TRCAR',
-    'FBTRCAR',
-    'SKLDA',
-    'STDA',
-    'DSP',
-    'FBDSP',
-    'TDCA',
-    'FBTDCA',
-    'DCPM',
-    'Covariances',
-    'Kernels',
-    'Shrinkage',
-    'MDM',
-    'TSclassifier',
-    'FgMDM',
-    'RKSVM',
-    'RiemannSVC',    
-    'RiemannCSP',
-    'Xdawn',
-    'TS',
-    'FGDA',
-    'TRCSP',
-    'FB',     
-    'SBLEST', 
-    'MIBIF',   
-    'RSF',
-    'ML_Classifier',
-    'LassoSelector'
-]   
+
 
 
 
