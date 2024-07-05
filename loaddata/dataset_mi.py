@@ -26,7 +26,7 @@ from moabb.datasets import (BNCI2014_001,
                             )
 
 from .pan2023 import Pan2023
-from .bcic2024a import BCIC2024A
+from .bcic2024 import BCIC2024A
 import numpy as np
 
 def dataset_loader(dataset_name, subjects, new_fs = 160):
