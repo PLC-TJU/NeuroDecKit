@@ -26,7 +26,7 @@ from moabb.datasets import (BNCI2014_001,
                             )
 
 from .pan2023 import Pan2023
-from .bcic2024 import BCIC2024A
+from .wrcc_bcic_mi import BCIC2024A, BCIC2023A, BCIC2023B, BCIC2023C
 import numpy as np
 
 def dataset_loader(dataset_name, subjects, new_fs = 160):
@@ -142,7 +142,10 @@ class Dataset_MI:
             "Weibo2014": (Weibo2014, 200, 60, 4),
             "Zhou2016": (Zhou2016, 250, 14, 5),
             'Pan2023': (Pan2023, 250, 28, 4),
-            'BCIC2024A': (BCIC2024A, 1000, 64, 4),
+            'BCIC2024A': (BCIC2024A, 1000, 59, 4),
+            'BCIC2023A': (BCIC2023A, 1000, 59, 4),
+            'BCIC2023B': (BCIC2023B, 1000, 59, 4),
+            'BCIC2023C': (BCIC2023C, 1000, 59, 4),
         }
 
         # 检查数据集名称是否有效

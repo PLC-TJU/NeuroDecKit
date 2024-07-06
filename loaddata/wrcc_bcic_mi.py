@@ -54,25 +54,25 @@ def eeg_data_path(subject, base_path='', phase='2024A'):
         Paths to the subject's EEG data files.
     """
     if phase == '2024A':
-        FILES = FILES_2024A
+        Files = FILES_2024A
     elif phase == '2023A': 
-        FILES = FILES_2023A
+        Files = FILES_2023A
     elif phase == '2023B':
-        FILES = FILES_2023B
+        Files = FILES_2023B
     elif phase == '2023C':
-        FILES = FILES_2023C
+        Files = FILES_2023C
     else:
         raise ValueError(f"Invalid phase: {phase}.")
     
-    if not 1 <= subject <= len(FILES):
-        raise ValueError(f"Subject must be between 1 and {len(FILES)}. Got {subject}.")
+    if not 1 <= subject <= len(Files):
+        raise ValueError(f"Subject must be between 1 and {len(Files)}. Got {subject}.")
 
     # 使用列表推导式和循环来简化文件下载逻辑
     file_path = os.path.join(base_path, f"Subject{str(subject).zfill(2)}.mat")
 
     # 下载缺失的文件
     if not os.path.isfile(file_path):
-        url = FILES[subject-1]
+        url = Files[subject-1]
         retrieve(url, None, file_path, base_path, progressbar=True)
 
     return [file_path]
