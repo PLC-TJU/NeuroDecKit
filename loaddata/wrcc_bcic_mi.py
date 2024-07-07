@@ -113,7 +113,7 @@ class BCIC_MI(BaseDataset):
             raw_data = raw_data - np.mean(raw_data, axis=2, keepdims=True)
             raw_events = np.zeros((raw_data.shape[0], 1, raw_data.shape[2]))
             raw_events[:, 0, 0] = event_ids
-            data = np.concatenate([1e-6 * raw_data, raw_events], axis=1)
+            data = np.concatenate([1e-3 * raw_data, raw_events], axis=1)
             # add buffer in between trials
             log.warning(
                 "Trial data de-meaned and concatenated with a buffer to create " "cont data"

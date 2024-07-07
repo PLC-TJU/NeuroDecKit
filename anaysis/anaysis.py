@@ -42,7 +42,7 @@ def meta_analysis(acc_A, acc_B, test_method=None, correction_method=None, perm_c
     Parameters:
     acc_A (list of lists): Accuracy of algorithm A for each subject in each dataset. Should have the same length as acc_B.
     acc_B (list of lists): Accuracy of algorithm B for each subject in each dataset. Should have the same length as acc_A.
-    test_method (str): The statistical test method to use ('paired_t', 'wilcoxon', etc.). (default None).
+    test_method (str): The statistical test method to use ('paired_t', 'independent_t', 'wilcoxon', etc.). (default independent_t).
     correction_method (str): The multiple comparison correction method to use (None, 'bonferroni', 'fdr', etc.). (default None).
     perm_cutoff (int): threshold value for using pair t-test or Wilcoxon tests when test_method is None. (default 20).
 
@@ -65,11 +65,13 @@ def meta_analysis(acc_A, acc_B, test_method=None, correction_method=None, perm_c
             raise ValueError("The number of subjects in each dataset should be the same")
         
         if test_method is None:
-            test_method = 'paired_t' if len(data_A)<perm_cutoff else 'wilcoxon'
+            _test_method = 'independent_t' if len(data_A) < perm_cutoff else 'wilcoxon'
         
-        if test_method == 'paired_t':
-            t_val, p_val = stats.ttest_rel(data_A, data_B)
-        elif test_method == 'wilcoxon':
+        if _test_method == 'paired_t':
+            t_val, p_val = stats.ttest_rel(data_A, data_B)    
+        elif _test_method == 'independent_t':
+            t_val, p_val = stats.ttest_ind(data_A, data_B, permutations=10000, random_state=42)
+        elif _test_method == 'wilcoxon':
             t_val, p_val = stats.wilcoxon(data_A, data_B)
         else:
             raise ValueError("Unsupported test method")
@@ -126,7 +128,7 @@ if __name__ == '__main__':
     # 数据集的受试者数量
     sample_sizes = [9, 52, 54, 14, 106, 29, 10]
     
-    results = meta_analysis(acc_A, acc_B, test_method='paired_t', correction_method='bonferroni')
+    results = meta_analysis(acc_A, acc_B, correction_method='bonferroni')
     
     # 打印结果    
     print("t-values:")
