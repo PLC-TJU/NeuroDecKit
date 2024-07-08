@@ -31,3 +31,7 @@ from .pipe import(
     combine_processes,
     check_pipeline_compatibility,
 )
+
+from .json_ import(
+    check_completed_jobs,
+)

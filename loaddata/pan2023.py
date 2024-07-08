@@ -193,12 +193,13 @@ class Pan2023(BaseDataset):
             zeroshape = (data.shape[0], data.shape[1], 50)
             data = np.concatenate([np.zeros(zeroshape), data, np.zeros(zeroshape)], axis=2)
             
+            trialnum = int(data.shape[0]/4)
             out[str(sess_ind)] = {}
             for run_ind in range(4):
                 
                 raw = mne.io.RawArray(
                     # 30 trials per run/block
-                    data=np.concatenate(list(data[30*run_ind:30*(run_ind+1), :, :]), axis=1), info=info, verbose=False
+                    data=np.concatenate(list(data[trialnum*run_ind:trialnum*(run_ind+1), :, :]), axis=1), info=info, verbose=False
                 )
                 raw.set_montage(montage)   
             

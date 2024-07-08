@@ -350,6 +350,7 @@ class TL_Classifier(BaseEstimator, ClassifierMixin):
                                                          TSclassifier(clf=make_pipeline(
                                                          SelectPercentile(f_classif, percentile=self.fea_percent), 
                                                          SVC(C=1, kernel='linear')), memory=self.memory), n_estimators=n_estimators, algorithm=algorithm)),
+            #33-
             'MDWM':               ('mdwm',               MDWM(domain_tradeoff=0.5, target_domain=self.target_domain)),# 本身包括迁移学习框架，仅适用于迁移学习
             'MEKT':               ('mekt-lda',           MEKT(target_domain=self.target_domain)), # 本身包括迁移学习框架，仅适用于迁移学习
             'MEKT-LDA':           ('mekt-lda',           MEKT(target_domain=self.target_domain, estimator=LDA(solver='eigen', shrinkage='auto'))), 

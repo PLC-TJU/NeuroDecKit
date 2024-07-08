@@ -230,6 +230,9 @@ class TLSplitter:
         if True, the entire target domain is used as the test set (i.e. 
         calibration-free), otherwise a random split is done on the target 
         domain data.
+    modeling : bool, default=False  
+        if True, the whole source and target domain data is used for training,
+        and the target domain data is used as the test set.
 
     References
     ----------
@@ -240,10 +243,11 @@ class TLSplitter:
     .. modified:: Pan.LC 2024/6/23
     """
 
-    def __init__(self, target_domain, cv, no_calibration=False):
+    def __init__(self, target_domain, cv, no_calibration=False, modeling=False):
         self.target_domain = target_domain
         self.cv = cv
         self.no_calibration = no_calibration
+        self.modeling = modeling
 
     def split(self, X, y, groups=None):
         """Generate indices to split data into training and test set.
@@ -270,6 +274,14 @@ class TLSplitter:
         idx_source = np.where(domain != self.target_domain)[0]
         idx_target = np.where(domain == self.target_domain)[0]
         y_target = y[idx_target]
+        
+        if self.modeling:
+            # If modeling, we use all source and target domain data as the training 
+            # set and the entire target domain as the test set
+            train_idx = np.concatenate([idx_source, idx_target])
+            test_idx = idx_target
+            yield train_idx, test_idx
+            return
 
         if self.no_calibration:
             # Use all target domain samples as the test set
@@ -300,7 +312,7 @@ class TLSplitter:
         n_splits : int
             Returns the number of splitting iterations in the cross-validator.
         """
-        if self.no_calibration:
+        if self.no_calibration or self.modeling:
             return 1
         else:
             return self.cv.get_n_splits(X, y)
