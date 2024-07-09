@@ -217,7 +217,7 @@ class Algorithms(BaseEstimator, ClassifierMixin):
                 break 
         
         if self.PreProcess.compat_flag:
-            self.TLClassifierModel.__init__(
+            self.TLClassifierModel.__class__(
                 dpa_method=self.DPA_METHODS[self.algorithm_id[0]], 
                 fee_method=self.FEE_METHODS[self.algorithm_id[1]], 
                 fes_method=self.FES_METHODS[self.algorithm_id[2]], 

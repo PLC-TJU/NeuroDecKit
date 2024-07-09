@@ -188,7 +188,7 @@ class RSF(BaseEstimator, TransformerMixin):
         - flag (bool, optional): Whether to collect objective function values during optimization (default: False).
         """
         self.dim = dim
-        self.method = method.lower() if method is not None else 'none'
+        self.method = method
         self.flag = flag
         self.solver = solver
         self.W = None
@@ -264,6 +264,20 @@ class RSF(BaseEstimator, TransformerMixin):
             transformed_data = X
 
         return transformed_data
+    
+    def get_params(self, deep=True):
+        return {
+            'dim': self.dim,
+            'method': self.method,
+            'solver': self.solver,
+            'flag': self.flag
+        }
+    
+    def set_params(self, **params):
+        for param, value in params.items():
+            setattr(self, param, value)
+        return self
+    
 
     
 # import pymanopt
