@@ -207,7 +207,7 @@ class Algorithms(BaseEstimator, ClassifierMixin):
         :param y: The target data.
         :return: The trained algorithm.
         """
-        
+        X = np.reshape(X, (-1, *X.shape[-2:]))
         X_dec, _, domains = decode_domains(X, y)
         w = np.zeros(len(X_dec))
         w[domains == self.target_domain] = 1
@@ -243,6 +243,7 @@ class Algorithms(BaseEstimator, ClassifierMixin):
         :param X: The input data.
         :return: The predicted target data.
         """
+        X = np.reshape(X, (-1, *X.shape[-2:]))
         if not self.PreProcess.compat_flag:
             X = self.PreProcess.transform(X)
         return self.Model.predict(X)
@@ -253,6 +254,7 @@ class Algorithms(BaseEstimator, ClassifierMixin):
         :param X: The input data.
         :return: The predicted probability of the target data.
         """ 
+        X = np.reshape(X, (-1, *X.shape[-2:]))
         if not self.PreProcess.compat_flag:
             X = self.PreProcess.transform(X)
         return self.Model.predict_proba(X)
@@ -264,6 +266,7 @@ class Algorithms(BaseEstimator, ClassifierMixin):
         :param y: The target data.
         :return: The accuracy of the algorithm.
         """ 
+        X = np.reshape(X, (-1, *X.shape[-2:]))
         if not self.PreProcess.compat_flag:
             X = self.PreProcess.transform(X)
         return self.Model.score(X, y)

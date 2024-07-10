@@ -5,6 +5,7 @@ Date: 2024/6/21
 License: All rights reserved
 """
 
+import numpy as np
 from .utilities import *
 from utils import ensure_pipeline, combine_processes
 from utils import check_pipeline_compatibility as check_compatible
@@ -436,20 +437,24 @@ class TL_Classifier(BaseEstimator, ClassifierMixin):
 
     def fit(self, X, y_enc):
         
+        X = np.reshape(X, (-1, *X.shape[-2:]))
         self.model.fit(X, y_enc)
          
         return self
 
     def predict(self, X):
         
+        X = np.reshape(X, (-1, *X.shape[-2:]))
         return self.model.predict(X)
     
     def predict_proba(self, X):
         
+        X = np.reshape(X, (-1, *X.shape[-2:]))
         return self.model.predict_proba(X)
     
     def score(self, X, y_enc):
         
+        X = np.reshape(X, (-1, *X.shape[-2:]))
         return self.model.score(X, y_enc)
         
         

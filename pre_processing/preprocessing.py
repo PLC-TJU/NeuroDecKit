@@ -4,7 +4,7 @@ Author: Pan.LC <coreylin2023@outlook.com>
 Date: 2024/6/21
 License: All rights reserved
 """
-
+import numpy as np
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
@@ -181,6 +181,7 @@ class Pre_Processing(BaseEstimator, TransformerMixin):
         Returns:
             self (Pre_Processing): the fitted pre-processing pipeline.
         """
+        X = np.reshape(X, (-1, *X.shape[-2:]))
         self.process.fit(X, y)
         return self
     
@@ -194,7 +195,7 @@ class Pre_Processing(BaseEstimator, TransformerMixin):
         Returns:
             X (ndarray): transformed data. Shape (n_samples, n_channels, n_times)
         """
-        
+        X = np.reshape(X, (-1, *X.shape[-2:]))
         return self.process.transform(X)
     
     def fit_transform(self, X, y=None):
@@ -208,5 +209,6 @@ class Pre_Processing(BaseEstimator, TransformerMixin):
     Returns:
         X (ndarray): transformed data. Shape (n_samples, n_channels, n_times)
         """
+        X = np.reshape(X, (-1, *X.shape[-2:]))
         return self.process.fit_transform(X, y)
     
