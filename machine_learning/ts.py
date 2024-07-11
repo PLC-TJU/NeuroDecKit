@@ -192,7 +192,7 @@ class TSclassifier_online(TSclassifier):
         
         self.classes_ = np.unique(y)
 
-        ts = TangentSpace(metric=self.metric, tsupdate=self.tsupdate)
+        ts = TS_online(metric=self.metric, tsupdate=self.tsupdate)
         self._pipe = combine_processes(ts, self.clf, memory=self.memory)
         sample_weight_dict = {}
         for step in self._pipe.steps:
