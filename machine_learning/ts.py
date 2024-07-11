@@ -51,7 +51,7 @@ class TS_online(TangentSpace):
         self._check_reference_points(X)
         
         if self.tsupdate == 'offline':
-            Cr = mean_covariance(X, metric=self.metric_mean)    #待修改！！！迭代计算
+            Cr = mean_covariance(X, metric=self.metric_mean) 
 
             TsX = []
             for i in range(X.shape[0]):
