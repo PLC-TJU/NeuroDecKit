@@ -21,7 +21,6 @@ setup(
         'h5py==3.8.0',
         'joblib==1.2.0',
         'lightgbm==4.4.0',
-        'metabci==0.1.2',
         'mne==1.4.2',
         'moabb==1.1.0',
         'numpy==1.23.5',

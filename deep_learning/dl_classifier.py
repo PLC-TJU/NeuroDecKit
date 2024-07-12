@@ -154,6 +154,7 @@ def check_nn(est):
 
 class DL_Classifier(BaseEstimator, ClassifierMixin, TransformerMixin):
     def __init__(self, model_name='EEGNet', n_classes=2, fs=128, batch_size=32, lr=1e-2, max_epochs=200, device='cpu', **kwargs):
+        self.kwargs = kwargs
         self.model_name = model_name
         self.n_classes = n_classes
         self.fs = fs

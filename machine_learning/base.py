@@ -37,7 +37,7 @@ def recursive_reference_center(reference_old, X_new, alpha, metric='riemann'):
 
     Parameters
     ----------
-    reference_old : ndarray, shape (n_channels, n_channels)
+    reference_old : ndarray, (1, n_channels, n_channels) or (n_channels, n_channels)
         The reference matrix to be updated.
     X_new : ndarray, shape (1, n_channels, n_channels) or (n_channels, n_channels)
         The new matrices to be centered.
@@ -51,10 +51,12 @@ def recursive_reference_center(reference_old, X_new, alpha, metric='riemann'):
     reference_new : ndarray, shape (n_channels, n_channels)
         The updated reference matrix. 
     """
-    X_new = X_new.copy() 
+    X_new = X_new.copy()
     reference_old = reference_old.copy()
     X_new = X_new.reshape((-1, *X_new.shape[-2:]))
     X_new = X_new.mean(axis=0, keepdims=False)
+    if reference_old.shape[0] == 1:
+        reference_old = reference_old[0]
     C = geodesic(reference_old, X_new, alpha, metric=metric)
     reference_new = invsqrtm(C)
     reference_new = reference_new.reshape(reference_old.shape)

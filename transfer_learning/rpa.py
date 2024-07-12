@@ -575,12 +575,14 @@ class TLCenter_online(RCT):
         self._n_tracked = 0
     
     def get_recenter(self, X, sample_weight):
+        X = np.reshape(X, (-1, *X.shape[-2:]))
         M = mean_covariance(X, self.metric, sample_weight)
         filters = invsqrtm(M)
         return filters, M
     
     def recenter(self, X, filters):
-        return filters.T @ X @ filters
+        X = np.reshape(X, (-1, *X.shape[-2:]))
+        return np.einsum('ij,bjk,kl->bil', filters.T, X, filters)
     
     def transform(self, X, y_enc=None):
         """Re-center the data points in the target domain to Identity.

@@ -37,6 +37,7 @@ class ML_Classifier(BaseEstimator, ClassifierMixin):
         self.model_name = model_name
         
         # 以下参数均可通过kwargs传入，若未传入则使用默认值
+        self.kwargs = kwargs
         self.fs = kwargs.get('fs', None)
         self.cov_estimator = kwargs.get('cov_estimator', 'cov') # {'scm', 'cov', 'lwf'}
         self.shr_value = kwargs.get('shr_value', None)

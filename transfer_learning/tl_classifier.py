@@ -15,6 +15,7 @@ class TL_Classifier(BaseEstimator, ClassifierMixin):
                  end_method=None, ete_method=None, pre_est=None, target_domain=None, tl_mode='TL', **kwargs):
         self.model = None
         self._tl_flag = True
+        self.kwargs = kwargs
         self.memory = kwargs.get('memory', None) # 缓存地址 Memory(location=None, verbose=0)
         
         self.dpa_method = dpa_method  # 域适应方法

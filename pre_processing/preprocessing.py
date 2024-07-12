@@ -82,6 +82,7 @@ class Pre_Processing(BaseEstimator, TransformerMixin):
         self.process = None
         self.compat_flag = True  # compatibility, if True, the final pipeline (self.process) will be compatible with other sklearn pipeline
         self.memory = kwargs.get('memory', None)
+        self.kwargs = kwargs
         
         # downsampling parameters
         self.fs_new = fs_new
