@@ -10,7 +10,7 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 from pyriemann.channelselection import FlatChannelRemover
 
-from .base import Downsample, ChannelSelector, BandpassFilter, TimeWindowSelector, PrecisionConverter
+from .base import Downsample, ChannelSelector, BandpassFilter, TimeWindowSelector, PrecisionConverter, RemoveMean
 from .channel_selection import RiemannChannelSelector, CSPChannelSelector
 from .data_augmentation import TimeWindowDataExpansion
 from .rsf import RSF
@@ -146,7 +146,7 @@ class Pre_Processing(BaseEstimator, TransformerMixin):
                 self.steps.append(('spatial_filter', RSF(dim=self.nelec, method='cspf')))
             else:
                 raise ValueError('Invalid channel selection method.')
-                
+               
         # time_window_data_augmentation
         twda_flag = False
         if self.aug_method is not None:
@@ -167,6 +167,9 @@ class Pre_Processing(BaseEstimator, TransformerMixin):
                                                                           end_time=self.end_time, 
                                                                           twda_flag=twda_flag
                                                                           )))
+        
+        # remove mean
+        self.steps.append(('remove_mean', RemoveMean()))
         
         # initialize the pipeline
         self.process = Pipeline(steps=self.steps, memory=self.memory)

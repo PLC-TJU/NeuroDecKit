@@ -185,24 +185,41 @@ class Downsample(BaseEstimator, TransformerMixin):
         n_points = int(X.shape[-1] * self.fs_new / self.fs_old)
         return resample(X, n_points, axis=-1)
 
-# 标准化类
-class StandardScaler(BaseEstimator, TransformerMixin):
-    def __init__(self, mean=None, std=None):
+# 去均值类
+class RemoveMean(BaseEstimator, TransformerMixin):
+    def __init__(self):
         """
-        标准化类        
-        
-        参数:
-        mean (array-like): 均值。
-        std (array-like): 标准差。
+        去均值类
         """
-        self.mean = mean
-        self.std = std
+        pass
     
     def fit(self, X, y=None, **fit_params):
-        if self.mean is None:
-            self.mean = np.mean(X, axis=0)
-        if self.std is None:
-            self.std = np.std(X, axis=0)
+        return self
+    
+    def transform(self, X, y=None):
+        """  
+        输入：
+        X (array-like): 输入信号。 
+        shape=(n_trials, n_channels, n_samples) or (n_channels, n_samples)
+        
+        输出：
+        array-like: 去均值后的信号。
+        """
+        X = X - np.mean(X, axis=-1, keepdims=True)
+        return X
+
+# 标准化类
+class StandardScaler(BaseEstimator, TransformerMixin):
+    def __init__(self):
+        """
+        标准化类
+        """
+        self.mean = None
+        self.std = None
+    
+    def fit(self, X, y=None, **fit_params):
+        self.mean = np.mean(X, axis=-1, keepdims=True)
+        self.std = np.std(X, axis=-1, keepdims=True)
         return self
     
     def transform(self, X, y=None):
@@ -213,19 +230,13 @@ class StandardScaler(BaseEstimator, TransformerMixin):
         
         输出：
         array-like: 标准化后的信号。
-        """
-        return (X - self.mean) / self.std
-
-    def inverse_transform(self, X, y=None):
-        """  
-        输入：
-        X (array-like): 输入信号。 
         shape=(n_trials, n_channels, n_samples) or (n_channels, n_samples)
-        
-        输出：
-        array-like: 反标准化后的信号。
         """
-        return X * self.std + self.mean
+        
+        X = X - self.mean
+        X = X / (self.std + 1e-10)
+        
+        return X
 
 # 平滑类
 class Smooth(BaseEstimator, TransformerMixin):
