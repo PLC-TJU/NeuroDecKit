@@ -65,12 +65,17 @@ def meta_analysis(acc_A, acc_B, test_method=None, correction_method=None, perm_c
             raise ValueError("The number of subjects in each dataset should be the same")
         
         if test_method is None:
-            _test_method = 'independent_t' if len(data_A) < perm_cutoff else 'wilcoxon'
+            _test_method = 'permutation_t' if len(data_A) < perm_cutoff else 'wilcoxon'
         
         if _test_method == 'paired_t':
             t_val, p_val = stats.ttest_rel(data_A, data_B)    
         elif _test_method == 'independent_t':
-            t_val, p_val = stats.ttest_ind(data_A, data_B, permutations=10000, random_state=42)
+            t_val, p_val = stats.ttest_ind(data_A, data_B)
+        elif _test_method == 'permutation_t':
+            t_val, p_val = stats.ttest_ind(data_A, data_B, 
+                                           permutations=10000, 
+                                           random_state=42
+                                           )    
         elif _test_method == 'wilcoxon':
             t_val, p_val = stats.wilcoxon(data_A, data_B)
         else:
