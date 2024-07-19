@@ -8,6 +8,7 @@
 
 # Pan et al. 对moabb库进行了一些可有可无的调整,用于灵活的修改数据集的保存地址,但这是不必要的。
 # 可以使用原版moabb库和pan2023.py文件中的函数来加载Pan2023数据集。
+import numpy as np
 from moabb.paradigms import LeftRightImagery, MotorImagery
 from moabb.datasets import (BNCI2014_001,
                             BNCI2014_002,
@@ -27,7 +28,7 @@ from moabb.datasets import (BNCI2014_001,
 
 from .pan2023 import Pan2023
 from .wrcc_bcic_mi import BCIC2024A, BCIC2023A, BCIC2023B, BCIC2023C
-import numpy as np
+from .liu2024 import Liu2024
 
 def dataset_loader(dataset_name, subjects, new_fs = 160):
     # 定义数据集和对应的采样频率
@@ -146,6 +147,7 @@ class Dataset_MI:
             'BCIC2023A': (BCIC2023A, 1000, 59, 4),
             'BCIC2023B': (BCIC2023B, 1000, 59, 4),
             'BCIC2023C': (BCIC2023C, 1000, 59, 4),
+            'Liu2024': (Liu2024, 1000, 59, 4),
         }
 
         # 检查数据集名称是否有效
