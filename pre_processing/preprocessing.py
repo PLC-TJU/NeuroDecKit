@@ -10,7 +10,7 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 from pyriemann.channelselection import FlatChannelRemover
 
-from .base import Downsample, ChannelSelector, BandpassFilter, TimeWindowSelector, PrecisionConverter, RemoveMean
+from .base import Downsample, ChannelSelector, BandpassFilter, TimeWindowSelector, RemoveMean
 from .channel_selection import RiemannChannelSelector, CSPChannelSelector
 from .data_augmentation import TimeWindowDataExpansion
 from .rsf import RSF
@@ -112,8 +112,6 @@ class Pre_Processing(BaseEstimator, TransformerMixin):
         self.window_step = kwargs.get('window_step', 0.5)  # window step for time window data augmentation
         
         ## initialize the pre-processing steps
-        # convert precision
-        self.steps.append(('precision_converter', PrecisionConverter()))
         
         # downsampling
         if self.fs_new is not None and self.fs_old is not None:

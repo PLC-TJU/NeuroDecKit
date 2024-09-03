@@ -115,7 +115,7 @@ def mekt_feature(X, sample_weight=None, metric='riemann'):
 
     return feature
 
-def mekt_kernel(Xs, Xt, ys, d=10, max_iter=5, alpha=0.01, beta=0.1, rho=20, k=10, t=1):
+def mekt_kernel(Xs, Xt, ys, d=10, max_iter=5, alpha=0.01, beta=0.1, rho=20, k=10, t=1, clf=None):
     """Manifold Embedding Knowledge Transfer.
 
     Parameters
@@ -140,6 +140,8 @@ def mekt_kernel(Xs, Xt, ys, d=10, max_iter=5, alpha=0.01, beta=0.1, rho=20, k=10
         number of nearest neighbors
     t : int, optional
         heat kernel parameter
+    clf : object, optional
+        classifier for source domain discriminability, by default LDA(solver='lsqr', shrinkage='auto')
 
     Returns
     -------
@@ -180,7 +182,7 @@ def mekt_kernel(Xs, Xt, ys, d=10, max_iter=5, alpha=0.01, beta=0.1, rho=20, k=10
     onehot_enc = OneHotEncoder(categories=[classes], sparse_output=False)
     Ns = onehot_enc.fit_transform(np.reshape(ys, (-1, 1))) / len(ys)
 
-    clf = LDA(solver="lsqr", shrinkage="auto")
+    clf = LDA(solver="lsqr", shrinkage="auto") if clf is None else clf
     yt = clf.fit(Xs, ys).predict(Xt)  # initial predict label
 
     X = block_diag(Xs, Xt)
@@ -224,7 +226,10 @@ class MEKT(BaseEstimator, ClassifierMixin): #有监督的迁移学习方法
         2023-12-09 by heoohuan <heoohuan@163.com>（Add code annotation）
         
         2024-06-23 by LC.Pan <coreylin@outlook.com>
+         - add fit method
          - add transform method 
+         - add predict method
+         - add score method
          - add target_domain parameter to fit_transform method
          - add decode_domains function to decode source and target domains
          - add sample_weight parameter to mekt_feature method
@@ -381,6 +386,7 @@ class MEKT(BaseEstimator, ClassifierMixin): #有监督的迁移学习方法
             rho=self.rho,
             k=self.k,
             t=self.t,
+            clf=self.estimator,
         )
         source_features = featureXs @ self.A_
         target_features = featureXt @ self.B_

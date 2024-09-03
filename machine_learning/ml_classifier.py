@@ -7,7 +7,7 @@ License: All rights reserved
 备注：
 1. 该文件是机器学习分类器的实现，包括CSP、LDA、SVM、FBCSP、SBLEST、TRCA等分类器。
 2. 该文件仅供参考，所集成的算法源码均来自于其它项目，如scikit-learn、pyriemann、metabci等。
-3. 所使用的各种算法的具体实现可能与matlab版本有所差异，不保证准确性。
+3. 所使用的各种算法的具体实现可能与matlab版本有所差异。
 """
 
 

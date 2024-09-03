@@ -18,10 +18,14 @@ from moabb.datasets.download import get_dataset_path
 
 log = logging.getLogger(__name__)
 
-
+# 2024A, 2023B
 ID_List_2024A = [10358857, 10358855, 10358853, 10358856, 10358859,
                  10366513, 10358861, 10358854, 10358860] 
 
+ID_List_2024B = [10466315, 10466310, 10466317, 10466311, 10466312,
+                 10466316, 10466309, 10466314, 10466313] 
+
+# 2023A, 2023B, 2023C
 ID_List_2023A = [10358829, 10358821, 10358827, 10358828, 10358824,
                  10358822, 10358825, 10358823, 10358826] 
 
@@ -29,9 +33,10 @@ ID_List_2023B = [10358839, 10358833, 10358840, 10358836, 10358838,
                  10358834, 10358835, 10358837, 10358832] 
 
 ID_List_2023C = [10358845, 10358849, 10358843, 10358842, 10358844,
-                 10358847, 10358846, 10358848] 
+                 10358847, 10358846, 10358848]
 
 FILES_2024A = [f"https://dataverse.harvard.edu/api/access/datafile/{i}" for i in ID_List_2024A]
+FILES_2024B = [f"https://dataverse.harvard.edu/api/access/datafile/{i}" for i in ID_List_2024B]
 FILES_2023A = [f"https://dataverse.harvard.edu/api/access/datafile/{i}" for i in ID_List_2023A]
 FILES_2023B = [f"https://dataverse.harvard.edu/api/access/datafile/{i}" for i in ID_List_2023B]
 FILES_2023C = [f"https://dataverse.harvard.edu/api/access/datafile/{i}" for i in ID_List_2023C]
@@ -55,6 +60,8 @@ def eeg_data_path(subject, base_path='', phase='2024A'):
     """
     if phase == '2024A':
         Files = FILES_2024A
+    elif phase == '2024B':
+        Files = FILES_2024B
     elif phase == '2023A': 
         Files = FILES_2023A
     elif phase == '2023B':
@@ -179,6 +186,49 @@ class BCIC2024A(BCIC_MI):
             os.makedirs(basepath)
 
         return eeg_data_path(subject, basepath, '2024A')
+    
+class BCIC2024B(BCIC_MI):
+    """Motor Imagery dataset for stage B of the WRCC2024.
+    
+    Contains data from several stroke patients (ID unknown).
+
+    .. admonition:: Dataset summary
+
+        =========  =======  =======  ==========  =================  ============  ===============  ===========
+        Name         #Subj    #Chan    #Classes    #Trials / class  Trials len    Sampling rate      #Sessions
+        =========  =======  =======  ==========  =================  ============  ===============  ===========
+        BCIC2024A        9       59           3                 30  4s            1000Hz                     1
+        =========  =======  =======  ==========  =================  ============  ===============  ===========
+
+    """
+
+    def __init__(self, **kwargs):
+        super().__init__(
+            subjects=list(range(1, 10)),
+            sessions_per_subject=1,
+            events=dict(
+                left_hand=1,
+                right_hand=2,
+                feet=3,
+            ),
+            code="BCIC2024B",
+            interval=[0, 4],
+            paradigm="imagery",
+            doi="",
+            **kwargs,
+        )
+
+    def data_path(
+        self, subject, path=None, force_update=False, update_path=None, verbose=None
+    ):
+        if subject not in self.subject_list:
+            raise (ValueError("Invalid subject number"))
+        path = get_dataset_path("BCIC", path)
+        basepath = os.path.join(path,"MNE-bcic2024b-data")
+        if not os.path.isdir(basepath):
+            os.makedirs(basepath)
+
+        return eeg_data_path(subject, basepath, '2024B')
 
 class BCIC2023A(BCIC_MI):    
     """Motor Imagery dataset for stage A of the WRCC2023.

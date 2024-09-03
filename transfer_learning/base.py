@@ -198,7 +198,7 @@ def decode_domains(X_enc, y_enc):
     .. versionadded:: 0.4
     """
     y, domain = [], []
-    if '/' not in y_enc[0]:
+    if '/' not in str(y_enc[0]):
         return X_enc, y_enc, np.array(['S1' for _ in range(len(y_enc))])
     
     for y_enc_ in y_enc:

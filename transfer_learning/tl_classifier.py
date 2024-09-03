@@ -438,6 +438,8 @@ class TL_Classifier(BaseEstimator, ClassifierMixin):
 
     def fit(self, X, y_enc):
         
+        _, y, _ = decode_domains(X, y_enc)
+        self.classes_ = np.unique(y)
         X = np.reshape(X, (-1, *X.shape[-2:]))
         self.model.fit(X, y_enc)
          

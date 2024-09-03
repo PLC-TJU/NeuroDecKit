@@ -29,7 +29,7 @@ class BandpassFilter(BaseEstimator, TransformerMixin):
         self.filter_type = filter_type
     
     def __repr__(self): 
-        return f"BandpassFilter(lowcut={self.lowcut}, highcut={self.highcut}" \
+        return f"BandpassFilter(lowcut={self.lowcut}, highcut={self.highcut}, " \
                f"fs={self.fs}, order={self.order}, filter_type={self.filter_type})"
      
     def _get_filter_coeff(self):
