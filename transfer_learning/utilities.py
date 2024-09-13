@@ -22,7 +22,8 @@ from sklearn.neighbors import KNeighborsClassifier as KNN # K 近邻
 from sklearn.tree import DecisionTreeClassifier as DTC # 决策树
 from sklearn.ensemble import RandomForestClassifier as RFC # 随机森林
 from sklearn.ensemble import ExtraTreesClassifier as ETC # 极端随机森林
-from sklearn.ensemble import AdaBoostClassifier as ABC # AdaBoost
+# from sklearn.ensemble import AdaBoostClassifier as ABC # AdaBoost
+from ensemble_learning import AdaBoost as ABC # AdaBoost
 from sklearn.ensemble import GradientBoostingClassifier as GBC # GradientBoosting
 from sklearn.naive_bayes import GaussianNB as GNB # 高斯朴素贝叶斯
 from sklearn.neural_network import MLPClassifier as MLP # 多层感知机
@@ -35,7 +36,9 @@ from pyriemann.transfer import TLDummy, TLStretch, TLRotate, MDWM
 
 from machine_learning import RiemannCSP as CSP
 from machine_learning import TRCSP, DCPM, TRCA, SBLEST, TSclassifier, TS, FGDA, FgMDM
-from .mekt import MEKT
+# from .mekt import MEKT
+from .mekt import MEDA as MEKT #有监督的MEKT
+from .kl import KEDA
 from .base import decode_domains, encode_datasets, TLClassifier
 from .rpa import RCT, STR, ROT
 from .rpa import TLCenter_online as TLCenter
@@ -48,7 +51,7 @@ __all__ = [
     'GBC', 'GNB', 'MLP', 'Covariances', 'TS', 'FGDA', 'MDM', 'FgMDM', 'RKNN',
     'RKSVM', 'TLDummy', 'TLCenter', 'TLStretch', 'TLRotate', 'MDWM', 'CSP',
     'TRCSP', 'DCPM', 'TRCA', 'SBLEST', 'TSclassifier', 'MEKT', 'RCT', 'STR',
-    'ROT', 'decode_domains', 'encode_datasets', 'TLClassifier',
+    'ROT', 'decode_domains', 'encode_datasets', 'TLClassifier', 'KEDA'
 ]
 
 

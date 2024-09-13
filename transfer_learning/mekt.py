@@ -115,7 +115,7 @@ def mekt_feature(X, sample_weight=None, metric='riemann'):
 
     return feature
 
-def mekt_kernel(Xs, Xt, ys, d=10, max_iter=5, alpha=0.01, beta=0.1, rho=20, k=10, t=1, clf=None):
+def mekt_kernel(Xs, Xt, ys, yt=None, d=10, max_iter=5, alpha=0.01, beta=0.1, rho=20, k=10, t=1, clf=None):
     """Manifold Embedding Knowledge Transfer.
 
     Parameters
@@ -126,6 +126,8 @@ def mekt_kernel(Xs, Xt, ys, d=10, max_iter=5, alpha=0.01, beta=0.1, rho=20, k=10
         target features, shape (n_target_trials, n_features)
     ys : ndarray
         source labels, shape (n_source_trials,)
+    yt : ndarray, optional
+        target labels, shape (n_target_trials,), by default None
     d : int, optional
         selected d projection vectors, by default 10
     max_iter : int, optional
@@ -182,8 +184,14 @@ def mekt_kernel(Xs, Xt, ys, d=10, max_iter=5, alpha=0.01, beta=0.1, rho=20, k=10
     onehot_enc = OneHotEncoder(categories=[classes], sparse_output=False)
     Ns = onehot_enc.fit_transform(np.reshape(ys, (-1, 1))) / len(ys)
 
-    clf = LDA(solver="lsqr", shrinkage="auto") if clf is None else clf
-    yt = clf.fit(Xs, ys).predict(Xt)  # initial predict label
+    if yt is None:
+        # 原本（来自metabci.brainda.algorithms.transfer_learning.mekt.py）
+        # 存在问题：这一步实际不太符合无监督，因为现实中无法在初始获取所有的测试样本
+        clf = LDA(solver="lsqr", shrinkage="auto") if clf is None else clf
+        yt = clf.fit(Xs, ys).predict(Xt)  # initial predict label 
+    else:
+        # 有监督版本 （LC.Pan 2024-09-01 修改）
+        max_iter = 1
 
     X = block_diag(Xs, Xt)
     Emin_temp = alpha * P + beta * L + rho * Q
@@ -212,7 +220,7 @@ def mekt_kernel(Xs, Xt, ys, d=10, max_iter=5, alpha=0.01, beta=0.1, rho=20, k=10
 
     return A, B
 
-class MEKT(BaseEstimator, ClassifierMixin): #有监督的迁移学习方法
+class MEKT(BaseEstimator, ClassifierMixin): #基于特征空间的迁移学习方法，需要目标域样本，但不需要标签
     """
     Manifold Embedded Knowledge Transfer(MEKT) [1]_.
 
@@ -294,7 +302,7 @@ class MEKT(BaseEstimator, ClassifierMixin): #有监督的迁移学习方法
     def __init__(
         self,
         target_domain,
-        subspace_dim: int = 20,
+        subspace_dim: int = 10,
         max_iter: int = 5,
         alpha: float = 0.01,
         beta: float = 0.1,
@@ -334,14 +342,15 @@ class MEKT(BaseEstimator, ClassifierMixin): #有监督的迁移学习方法
 
         """
         feature = mekt_feature(X, metric=self.metric)
-        target_features = feature @ self.B_
         
         if self.selector is not None:
-            target_features = self.selector.transform(target_features)
+            feature = self.selector.transform(feature)
+        
+        target_features = feature @ self.B_
         
         return target_features
 
-    def fit_transform(self, X, y_enc, sample_weight=None):
+    def fit_transform_(self, X, y_enc, sample_weight=None):
         """Obtain source and target domain features after MEKT transformation.
 
         Parameters
@@ -375,10 +384,20 @@ class MEKT(BaseEstimator, ClassifierMixin): #有监督的迁移学习方法
             Xt, 
             metric=self.metric
             )
+        
+        # 特征选择
+        if self.selector is not None:
+            featureXs_selected = self.selector.fit_transform(featureXs, ys)
+            featureXt_selected = self.selector.transform(featureXt)
+        else:
+            featureXs_selected = featureXs
+            featureXt_selected = featureXt
+        
         self.A_, self.B_ = mekt_kernel(
-            featureXs,
-            featureXt,
+            featureXs_selected,
+            featureXt_selected,
             ys,
+            yt=None,
             d=self.subspace_dim,
             max_iter=self.max_iter,
             alpha=self.alpha,
@@ -388,14 +407,14 @@ class MEKT(BaseEstimator, ClassifierMixin): #有监督的迁移学习方法
             t=self.t,
             clf=self.estimator,
         )
-        source_features = featureXs @ self.A_
-        target_features = featureXt @ self.B_
+        source_features = featureXs_selected @ self.A_
+        target_features = featureXt_selected @ self.B_
         # feature = np.concatenate((source_features, target_features), axis=0)
         feature = np.zeros((len(domains), source_features.shape[-1]))
         feature[domains != self.target_domain] = source_features
         feature[domains == self.target_domain] = target_features
         
-        return feature, y
+        return source_features, ys # 只返回源域特征和标签
     
     def fit(self, X, y_enc, sample_weight=None):
         """Fit the model with X and y.
@@ -415,11 +434,8 @@ class MEKT(BaseEstimator, ClassifierMixin): #有监督的迁移学习方法
             Returns the instance itself. 
 
         """
-        features, y = self.fit_transform(X, y_enc, sample_weight)
-        
-        if self.selector is not None:
-            features = self.selector.fit_transform(features, y)
-        
+        features, y = self.fit_transform_(X, y_enc, sample_weight)
+        self.classes_ = np.unique(y)
         self.model_ = self.estimator.fit(features, y)
         return self
     
@@ -442,6 +458,25 @@ class MEKT(BaseEstimator, ClassifierMixin): #有监督的迁移学习方法
 
         return y_pred
     
+    def predict_proba(self, X):
+        """Predict the target domain probabilities.
+
+        Parameters
+        ----------
+        X: ndarray
+            EEG data, shape(n_trials, n_channels, n_channels).
+
+        Returns
+        -------
+        y_pred_proba: ndarray
+            Predicted target domain probabilities, shape(n_trials, n_classes).
+
+        """
+
+        y_pred_proba = self.model_.predict_proba(self.transform(X))
+
+        return y_pred_proba
+    
     def score(self, X, y_enc):
         """Calculate the accuracy of the model.
 
@@ -461,4 +496,85 @@ class MEKT(BaseEstimator, ClassifierMixin): #有监督的迁移学习方法
         _, y_true, _ = decode_domains(X, y_enc)
         y_pred = self.predict(X)
         return accuracy_score(y_true, y_pred)
+
+
+# 纠正版，有监督学习的MEKT （LC.Pan 2024-09-01）
+class MEDA(MEKT):
+    def fit_transform_(self, X, y_enc, sample_weight=None):
+        """Obtain source and target domain features after MEKT transformation.
+
+        Parameters
+        ----------
+        X: ndarray
+            EEG data, shape(n_trials, n_channels, n_channels).
+        y_enc: ndarray
+            Label, shape(n_trials,).
+        sample_weight: ndarray
+            Sample weight, shape(n_trials,).
+
+        Returns
+        -------
+        feature: ndarray
+            source and target domain features, shape(n_trials, n_features).
+
+        """
+        X, y, domains = decode_domains(X, y_enc)
+        sample_weight = check_weights(sample_weight, X.shape[0])
+        
+        Xs = X[domains != self.target_domain]
+        ys = y[domains != self.target_domain]
+        Xt = X[domains == self.target_domain]
+        yt = y[domains == self.target_domain]
+        
+        if Xt.size == 0:
+            # raise ValueError("No target domain data found.")
+            flag = False
+        else:
+            flag = True
+        
+        
+        featureXs = mekt_feature(
+            Xs, 
+            sample_weight=sample_weight[domains != self.target_domain], 
+            metric=self.metric
+            )
+        featureXt = mekt_feature(
+            Xt, 
+            metric=self.metric
+            ) if flag else None
+        
+        # 特征选择
+        if self.selector is not None:
+            featureXs_selected = self.selector.fit_transform(featureXs, ys)
+            featureXt_selected = self.selector.transform(featureXt) if flag else None
+        else:
+            featureXs_selected = featureXs
+            featureXt_selected = featureXt if flag else None
+        
+        if not flag:
+            self.B_ = np.eye(featureXs_selected.shape[1])
+            return featureXs_selected, ys
+        
+        self.A_, self.B_ = mekt_kernel(
+            featureXs_selected,
+            featureXt_selected,
+            ys,
+            yt,
+            d=self.subspace_dim,
+            max_iter=self.max_iter,
+            alpha=self.alpha,
+            beta=self.beta,
+            rho=self.rho,
+            k=self.k,
+            t=self.t,
+            clf=self.estimator,
+        ) 
+        source_features = featureXs_selected @ self.A_
+        target_features = featureXt_selected @ self.B_
+        feature = np.zeros((len(domains), source_features.shape[-1]))
+        feature[domains != self.target_domain] = source_features
+        feature[domains == self.target_domain] = target_features
+        
+        return feature, y
+    
 

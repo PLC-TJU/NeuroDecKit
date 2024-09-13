@@ -106,4 +106,5 @@ def check_pipeline_compatibility(est):
             else:
                 return est
 
-    raise ValueError(f"[{est}] is not a valid estimator for building a Pipeline")
+
+    

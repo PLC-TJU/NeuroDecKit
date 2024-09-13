@@ -288,6 +288,15 @@ class TLSplitter:
             train_idx = idx_source
             test_idx = idx_target
             yield train_idx, test_idx
+            return
+
+        if self.cv in [0, 1]:
+            # Use last 70% of the target domain samples as the test set
+            train_idx = np.concatenate([idx_source, idx_target[:int(0.3*len(idx_target))]])
+            test_Idx = idx_target[int(0.3*len(idx_target)):]
+            yield train_idx, test_Idx
+            return
+
         else:
             # Index of training-split for the target data points
             ss_target = self.cv.split(idx_target, y_target, groups=groups)

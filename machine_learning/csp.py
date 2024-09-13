@@ -13,15 +13,16 @@ from sklearn.feature_selection import SelectKBest, mutual_info_classif
 from pyriemann.utils.mean import mean_covariance
 from pyriemann.utils.ajd import ajd_pham
 from pyriemann.utils.utils import check_weights
-from pyriemann.spatialfilters import CSP
+from pyriemann.spatialfilters import CSP as CSP_Cov
 from moabb.pipelines.csp import TRCSP
+from metabci.brainda.algorithms.decomposition.csp import CSP
 
 from utils import generate_intervals, adjust_intervals
 from .cca import FilterBank
 from .base import generate_filterbank
 
 
-class CSP_weighted(CSP):
+class CSP_weighted(CSP_Cov):
     def fit(self, X, y, sample_weight=None):
         """Train CSP spatial filters.
 
@@ -200,9 +201,8 @@ class FBCSP(FilterBank):
                                           order=4)
         
         super().__init__(
-            n_components=self.nfilter,
+            CSP(n_components=self.nfilter),
             filterbank=self.filterbanks,
-            n_mutualinfo_components=self.n_components_select,
             )
     
     def __repr__(self):

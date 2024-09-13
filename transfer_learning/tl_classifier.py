@@ -12,11 +12,14 @@ from utils import check_pipeline_compatibility as check_compatible
 
 class TL_Classifier(BaseEstimator, ClassifierMixin): 
     def __init__(self, dpa_method='TLDUMMY', fee_method='CSP', fes_method='MIC-K', clf_method='SVM', 
-                 end_method=None, ete_method=None, pre_est=None, target_domain=None, tl_mode='TL', **kwargs):
+                 end_method=None, ete_method=None, pre_est=None, target_domain=None, tl_mode='TL', 
+                 domain_tags=None, domain_weight=None, csp_nfilter=8, fea_num=20, fea_percent=30, 
+                 cov_estimator='lwf', random_state=42, memory=None, 
+                 **kwargs):
+        
+        # 初始化参数        
         self.model = None
         self._tl_flag = True
-        self.kwargs = kwargs
-        self.memory = kwargs.get('memory', None) # 缓存地址 Memory(location=None, verbose=0)
         
         self.dpa_method = dpa_method  # 域适应方法
         self.fee_method = fee_method  # 特征提取方法
@@ -33,14 +36,17 @@ class TL_Classifier(BaseEstimator, ClassifierMixin):
         # 'NOTL' means no transfer learning, e.g. only use the target domain data for training 
         # 'Calibration-Free' means no calibration, e.g. only use the source domain data for training
         
-        self.domain_tags = kwargs.get('domain_tags', None) # 域标签 ['domain1', 'domain2', 'domain3']
-        self.domain_weight = kwargs.get('domain_weight', None) # 各个域权重 {'domain1': 0.5, 'domain2': 0.3, 'domain3': 0.2}
+        self.domain_tags = domain_tags # 域标签 ['domain1', 'domain2', 'domain3']
+        self.domain_weight = domain_weight # 各个域权重 {'domain1': 0.5, 'domain2': 0.3, 'domain3': 0.2}
         
-        self.csp_nfilter = kwargs.get('csp_nfilter', 8) # CSP滤波器数量
-        self.fea_num = kwargs.get('fea_num', 12) # 特征数量
-        self.fea_percent = kwargs.get('fea_percent', 30) # 特征数量百分比
-        self.cov_estimator = kwargs.get('cov_estimator', 'lwf') # 样本协方差矩阵估计器
-        self.random_state = kwargs.get('random_state', 42) # 随机种子
+        self.csp_nfilter = csp_nfilter # CSP滤波器数量
+        self.fea_num = fea_num # 特征数量
+        self.fea_percent = fea_percent # 特征数量百分比
+        self.cov_estimator = cov_estimator # 样本协方差矩阵估计器
+        self.random_state = random_state # 随机种子
+        
+        self.memory = memory  # 缓存地址 Memory(location=None, verbose=0)
+        self.kwargs = kwargs
         
         # 预处理器
         pre_est = self.check_preest(self.pre_est)
@@ -105,6 +111,8 @@ class TL_Classifier(BaseEstimator, ClassifierMixin):
         }
         if callable(dpa):
             pass
+        elif not isinstance(dpa, str) and ensure_pipeline(dpa):
+            pass
         elif dpa.upper() in prealignments.keys():
             # Map the corresponding estimator
             dpa = prealignments[dpa.upper()]
@@ -137,6 +145,8 @@ class TL_Classifier(BaseEstimator, ClassifierMixin):
         }
         if callable(dpa):
             pass
+        elif not isinstance(dpa, str) and ensure_pipeline(dpa):
+            pass
         elif dpa.upper() in prealignments.keys():
             # Map the corresponding estimator
             dpa = prealignments[dpa.upper()]
@@ -161,11 +171,13 @@ class TL_Classifier(BaseEstimator, ClassifierMixin):
         }
         if callable(fee):
             pass
+        elif not isinstance(fee, str) and ensure_pipeline(fee):
+            pass
         elif fee.upper() in feature_extractions.keys():
-            if 'MDM' in fee.upper() or 'MDRM' in fee.upper():
+            if 'MDM' in fee.upper() or 'MDRM' in fee.upper() or 'KEDA' in fee.upper():
                 self.fea_percent = 100 # 特征数量百分比
                 self.fea_num = 100 # 特征最大数量
-            if 'MEKT' in fee.upper() or 'MDWM' in fee.upper():
+            if 'MEKT' in fee.upper() or 'MDWM' in fee.upper() or 'KEDA' in fee.upper():
                 self._tl_flag = False # 关闭迁移学习框架
             if ('MEKT' in fee.upper() or 'MDWM' in fee.upper()) and self.tl_mode != 'TL':
                 raise ValueError('%s is only available in transfer learning (tl_mode = TL) mode !' % fee.upper())
@@ -194,6 +206,8 @@ class TL_Classifier(BaseEstimator, ClassifierMixin):
             'RFECV':     RFECV(estimator=LR(random_state=self.random_state), step=1, cv=5, scoring='accuracy'), # 基于递归特征消除的交叉验证特征选择
         }
         if callable(fes):
+            pass
+        elif not isinstance(fes, str) and ensure_pipeline(fes):
             pass
         elif fes.upper() in feature_selections.keys():
             # Map the corresponding estimator
@@ -224,6 +238,8 @@ class TL_Classifier(BaseEstimator, ClassifierMixin):
             'MLP':  ('mlp', MLP(hidden_layer_sizes=(100,), max_iter=1000, alpha=0.0001, solver='adam', random_state=self.random_state)), # 多层感知机, **注意：MLP没有sample_weight参数
         }
         if callable(clf):
+            pass
+        elif not isinstance(clf, str) and ensure_pipeline(clf):
             pass
         elif clf.upper() in classifiers.keys():
             # Map the corresponding estimator
@@ -354,7 +370,7 @@ class TL_Classifier(BaseEstimator, ClassifierMixin):
                                                          SVC(C=1, kernel='linear')), memory=self.memory), n_estimators=n_estimators, algorithm=algorithm)),
             #33-
             'MDWM':               ('mdwm',               MDWM(domain_tradeoff=0.5, target_domain=self.target_domain)),# 本身包括迁移学习框架，仅适用于迁移学习
-            'MEKT':               ('mekt-lda',           MEKT(target_domain=self.target_domain)), # 本身包括迁移学习框架，仅适用于迁移学习
+            'MEKT':               ('mekt',           MEKT(target_domain=self.target_domain)), # 本身包括迁移学习框架，仅适用于迁移学习
             'MEKT-LDA':           ('mekt-lda',           MEKT(target_domain=self.target_domain, estimator=LDA(solver='eigen', shrinkage='auto'))), 
             'MEKT-LR':            ('mekt-lr',            MEKT(target_domain=self.target_domain, estimator=LR(random_state=self.random_state))),
             'MEKT-SVM':           ('mekt-svm',           MEKT(target_domain=self.target_domain, estimator=SVC(C=1, kernel='linear'))),
@@ -391,13 +407,55 @@ class TL_Classifier(BaseEstimator, ClassifierMixin):
             'MEKT-RFECV-LR':      ('mekt-rfecv-lr',      MEKT(target_domain=self.target_domain, estimator=LR(random_state=self.random_state), selector=RFECV(estimator=LR(random_state=self.random_state), step=1, cv=5))),
             'MEKT-RFECV-SVM':     ('mekt-rfecv-svm',     MEKT(target_domain=self.target_domain, estimator=SVC(C=1, kernel='linear'), selector=RFECV(estimator=LR(random_state=self.random_state), step=1, cv=5))),
             'MEKT-RFECV-MLP':     ('mekt-rfecv-mlp',     MEKT(target_domain=self.target_domain, estimator=MLP(max_iter=1000, random_state=self.random_state), selector=RFECV(estimator=LR(random_state=self.random_state), step=1, cv=5))),
+
+            #新增
+            'ABC-MEKT':           ('abc-mekt',           ABC(MEKT(target_domain=self.target_domain), n_estimators=n_estimators, algorithm=algorithm)),
+            'ABC-MEKT-LDA':       ('abc-mekt-lda',       ABC(MEKT(target_domain=self.target_domain, estimator=LDA(solver='eigen', shrinkage='auto')), n_estimators=n_estimators, algorithm=algorithm)),
+            'ABC-MEKT-LR':        ('abc-mekt-lr',        ABC(MEKT(target_domain=self.target_domain, estimator=LR(random_state=self.random_state)), n_estimators=n_estimators, algorithm=algorithm)),
+            'ABC-MEKT-SVM':       ('abc-mekt-svm',       ABC(MEKT(target_domain=self.target_domain, estimator=SVC(C=1, kernel='linear')), n_estimators=n_estimators, algorithm=algorithm)),
+            'ABC-MEKT-MLP':       ('abc-mekt-mlp',       ABC(MEKT(target_domain=self.target_domain, estimator=MLP(max_iter=1000, random_state=self.random_state)), n_estimators=n_estimators, algorithm=algorithm)),
+            'ABC-MEKT-MIC-K-LDA': ('abc-mekt-mic-k-lda', ABC(MEKT(target_domain=self.target_domain, estimator=LDA(solver='eigen', shrinkage='auto'), selector=SelectKBest(mutual_info_classif, k=self.fea_num)), n_estimators=n_estimators, algorithm=algorithm)),
+            'ABC-MEKT-MIC-K-LR':  ('abc-mekt-mic-k-lr',  ABC(MEKT(target_domain=self.target_domain, estimator=LR(random_state=self.random_state), selector=SelectKBest(mutual_info_classif, k=self.fea_num)), n_estimators=n_estimators, algorithm=algorithm)),
+            'ABC-MEKT-MIC-K-SVM': ('abc-mekt-mic-k-svm', ABC(MEKT(target_domain=self.target_domain, estimator=SVC(C=1, kernel='linear'), selector=SelectKBest(mutual_info_classif, k=self.fea_num)), n_estimators=n_estimators, algorithm=algorithm)),
+            'ABC-MEKT-MIC-K-MLP': ('abc-mekt-mic-k-mlp', ABC(MEKT(target_domain=self.target_domain, estimator=MLP(max_iter=1000, random_state=self.random_state), selector=SelectKBest(mutual_info_classif, k=self.fea_num)), n_estimators=n_estimators, algorithm=algorithm)),
+
+
+            'KEDA':               ('keda',               KEDA(target_domain=self.target_domain)),
+            'KEDA-LDA':           ('keda-lda',           KEDA(target_domain=self.target_domain, estimator=LDA(solver='eigen', shrinkage='auto'))),
+            'KEDA-LR':            ('keda-lr',            KEDA(target_domain=self.target_domain, estimator=LR(random_state=self.random_state))),
+            'KEDA-SVM':           ('keda-svm',           KEDA(target_domain=self.target_domain, estimator=SVC(C=1, kernel='linear'))),
+            'KEDA-MLP':           ('keda-mlp',           KEDA(target_domain=self.target_domain, estimator=MLP(max_iter=1000, random_state=self.random_state))), 
+            'KEDA-MIC-K-LDA':     ('keda-mic-k-lda',     KEDA(target_domain=self.target_domain, estimator=LDA(solver='eigen', shrinkage='auto'), selector=SelectKBest(mutual_info_classif, k=self.fea_num))),
+            'KEDA-MIC-K-LR':      ('keda-mic-k-lr',      KEDA(target_domain=self.target_domain, estimator=LR(random_state=self.random_state), selector=SelectKBest(mutual_info_classif, k=self.fea_num))),
+            'KEDA-MIC-K-SVM':     ('keda-mic-k-svm',     KEDA(target_domain=self.target_domain, estimator=SVC(C=1, kernel='linear'), selector=SelectKBest(mutual_info_classif, k=self.fea_num))),
+            'KEDA-MIC-K-MLP':     ('keda-mic-k-mlp',     KEDA(target_domain=self.target_domain, estimator=MLP(max_iter=1000, random_state=self.random_state), selector=SelectKBest(mutual_info_classif, k=self.fea_num))),
+            'KEDA-MIC-P-LDA':     ('keda-mic-p-lda',     KEDA(target_domain=self.target_domain, estimator=LDA(solver='eigen', shrinkage='auto'), selector=SelectPercentile(mutual_info_classif, percentile=self.fea_percent))),
+            'KEDA-MIC-P-LR':      ('keda-mic-p-lr',      KEDA(target_domain=self.target_domain, estimator=LR(random_state=self.random_state), selector=SelectPercentile(mutual_info_classif, percentile=self.fea_percent))),
+            'KEDA-MIC-P-SVM':     ('keda-mic-p-svm',     KEDA(target_domain=self.target_domain, estimator=SVC(C=1, kernel='linear'), selector=SelectPercentile(mutual_info_classif, percentile=self.fea_percent))),
+            'KEDA-MIC-P-MLP':     ('keda-mic-p-mlp',     KEDA(target_domain=self.target_domain, estimator=MLP(max_iter=1000, random_state=self.random_state), selector=SelectPercentile(mutual_info_classif, percentile=self.fea_percent))),
+            
+            'ABC-KEDA':           ('abc-keda',           ABC(KEDA(target_domain=self.target_domain), n_estimators=n_estimators, algorithm=algorithm)),  
+            'ABC-KEDA-LDA':       ('abc-keda-lda',       ABC(KEDA(target_domain=self.target_domain, estimator=LDA(solver='eigen', shrinkage='auto')), n_estimators=n_estimators, algorithm=algorithm)),
+            'ABC-KEDA-LR':        ('abc-keda-lr',        ABC(KEDA(target_domain=self.target_domain, estimator=LR(random_state=self.random_state)), n_estimators=n_estimators, algorithm=algorithm)),
+            'ABC-KEDA-SVM':       ('abc-keda-svm',       ABC(KEDA(target_domain=self.target_domain, estimator=SVC(C=1, kernel='linear')), n_estimators=n_estimators, algorithm=algorithm)),
+            'ABC-KEDA-MLP':       ('abc-keda-mlp',       ABC(KEDA(target_domain=self.target_domain, estimator=MLP(max_iter=1000, random_state=self.random_state)), n_estimators=n_estimators, algorithm=algorithm)),
+            'ABC-KEDA-MIC-K-LDA': ('abc-keda-mic-k-lda', ABC(KEDA(target_domain=self.target_domain, estimator=LDA(solver='eigen', shrinkage='auto'), selector=SelectKBest(mutual_info_classif, k=self.fea_num)), n_estimators=n_estimators, algorithm=algorithm)),
+            'ABC-KEDA-MIC-K-LR':  ('abc-keda-mic-k-lr',  ABC(KEDA(target_domain=self.target_domain, estimator=LR(random_state=self.random_state), selector=SelectKBest(mutual_info_classif, k=self.fea_num)), n_estimators=n_estimators, algorithm=algorithm)),
+            'ABC-KEDA-MIC-K-SVM': ('abc-keda-mic-k-svm', ABC(KEDA(target_domain=self.target_domain, estimator=SVC(C=1, kernel='linear'), selector=SelectKBest(mutual_info_classif, k=self.fea_num)), n_estimators=n_estimators, algorithm=algorithm)),
+            'ABC-KEDA-MIC-K-MLP': ('abc-keda-mic-k-mlp', ABC(KEDA(target_domain=self.target_domain, estimator=MLP(max_iter=1000, random_state=self.random_state), selector=SelectKBest(mutual_info_classif, k=self.fea_num)), n_estimators=n_estimators, algorithm=algorithm)),
+            'ABC-KEDA-MIC-P-LDA': ('abc-keda-mic-p-lda', ABC(KEDA(target_domain=self.target_domain, estimator=LDA(solver='eigen', shrinkage='auto'), selector=SelectPercentile(mutual_info_classif, percentile=self.fea_percent)), n_estimators=n_estimators, algorithm=algorithm)),
+            'ABC-KEDA-MIC-P-LR':  ('abc-keda-mic-p-lr',  ABC(KEDA(target_domain=self.target_domain, estimator=LR(random_state=self.random_state), selector=SelectPercentile(mutual_info_classif, percentile=self.fea_percent)), n_estimators=n_estimators, algorithm=algorithm)),
+            'ABC-KEDA-MIC-P-SVM': ('abc-keda-mic-p-svm', ABC(KEDA(target_domain=self.target_domain, estimator=SVC(C=1, kernel='linear'), selector=SelectPercentile(mutual_info_classif, percentile=self.fea_percent)), n_estimators=n_estimators, algorithm=algorithm)),
+            'ABC-KEDA-MIC-P-MLP': ('abc-keda-mic-p-mlp', ABC(KEDA(target_domain=self.target_domain, estimator=MLP(max_iter=1000, random_state=self.random_state), selector=SelectPercentile(mutual_info_classif, percentile=self.fea_percent)), n_estimators=n_estimators, algorithm=algorithm)),
         }
         if callable(est):
             pass
+        elif not isinstance(est, str) and ensure_pipeline(est):
+            pass
         elif est.upper() in estimators.keys():
-            if 'MEKT' in est.upper() or 'MDWM' in est.upper():
+            if 'MEKT' in est.upper() or 'MDWM' in est.upper() or 'KEDA' in est.upper():
                 self._tl_flag = False # 关闭迁移学习框架
-            if ('MEKT' in est.upper() or 'MDWM' in est.upper()) and self.tl_mode != 'TL':
+            if ('MEKT' in est.upper() or 'MDWM' in est.upper() or 'KEDA' in est.upper()) and self.tl_mode != 'TL':
                 raise ValueError('%s is only available in transfer learning (tl_mode = TL) mode !' % est.upper())
             # Map the corresponding estimator
             est = estimators[est.upper()]
@@ -419,6 +477,8 @@ class TL_Classifier(BaseEstimator, ClassifierMixin):
             'SBLEST': ('sblest', OneVsRestClassifier(SBLEST(K=2, tau=1, Epoch=2000, epoch_print=0))),
         }
         if callable(endtoend):
+            pass
+        elif not isinstance(endtoend, str) and ensure_pipeline(endtoend):
             pass
         elif endtoend.upper() in endtoends.keys():
             # Map the corresponding estimator

@@ -11,7 +11,7 @@ setup(
     description='All Tools for MI-EEG Decoding',
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url='https://github.com/TJU-PanLC/MI-All-dev',
+    url='https://github.com/TJU-PanLC/NeuroDecKit',
     packages=find_packages(),  
     install_requires=[
         'braindecode==0.8.1',

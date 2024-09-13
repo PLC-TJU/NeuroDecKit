@@ -51,7 +51,7 @@ class FilterBank:
     def __init__(self, fs, pass_width=4, f_width=4):
         self.fs           = fs
         self.f_trans      = 2
-        self.f_pass       = np.arange(4, 32, pass_width)
+        self.f_pass       = np.arange(4, 40, pass_width)
         self.f_width      = f_width
         self.gpass        = 3
         self.gstop        = 30
@@ -69,14 +69,14 @@ class FilterBank:
             b, a      = signal.cheby2(order, self.gstop, ws, btype='bandpass')
             self.filter_coeff.update({i:{'b':b,'a':a}})
         
-        pass_list = [[4,12],[12,30]]
-        for i, f_pass in enumerate(np.array(pass_list)):
-            f_stop    = np.asarray([f_pass[0]-self.f_trans, f_pass[1]+self.f_trans])
-            wp        = f_pass/Nyquist_freq
-            ws        = f_stop/Nyquist_freq
-            order, wn = cheb2ord(wp, ws, self.gpass, self.gstop)
-            b, a      = signal.cheby2(order, self.gstop, ws, btype='bandpass')
-            self.filter_coeff.update({i+len(self.f_pass):{'b':b,'a':a}})
+        # pass_list = [[4,12],[12,30]]
+        # for i, f_pass in enumerate(np.array(pass_list)):
+        #     f_stop    = np.asarray([f_pass[0]-self.f_trans, f_pass[1]+self.f_trans])
+        #     wp        = f_pass/Nyquist_freq
+        #     ws        = f_stop/Nyquist_freq
+        #     order, wn = cheb2ord(wp, ws, self.gpass, self.gstop)
+        #     b, a      = signal.cheby2(order, self.gstop, ws, btype='bandpass')
+        #     self.filter_coeff.update({i+len(self.f_pass):{'b':b,'a':a}})
             
         return self.filter_coeff
 

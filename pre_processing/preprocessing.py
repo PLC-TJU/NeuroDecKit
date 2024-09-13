@@ -74,8 +74,10 @@ class Pre_Processing(BaseEstimator, TransformerMixin):
                  fs_new=None, fs_old=None,          # downsampling
                  channels=None,                     # channel selection
                  start_time=None, end_time=None,    # time window selection
-                 lowcut=None, highcut=None,         # bandpass filter
-                 **kwargs
+                 lowcut=None, highcut=None, order=5, filter_type='butter', # bandpass filter    
+                 cs_method=None, nelec=10,          # channel selection plus
+                 aug_method=None, window_width=1.5, window_step=0.5,  # data augmentation
+                 **kwargs                           # optional parameters
                  ):
         
         self.steps = []
@@ -94,12 +96,12 @@ class Pre_Processing(BaseEstimator, TransformerMixin):
         # bandpass filter parameters
         self.lowcut = lowcut
         self.highcut = highcut
-        self.order = kwargs.get('order', 5)  # bandpass filter order
-        self.filter_type = kwargs.get('filter_type', 'butter')  # bandpass filter type
+        self.order = order  # bandpass filter order
+        self.filter_type = filter_type  # bandpass filter type
         
         # channel selection parameters plus
-        self.cs_method = kwargs.get('cs_method', None)  # channel selection method
-        self.nelec = kwargs.get('nelec', 16)  # number of electrodes for Riemann channel selection
+        self.cs_method = cs_method  # channel selection method
+        self.nelec = nelec  # number of electrodes for Riemann channel selection
         
         # time window selection parameters
         self.start_time = start_time
@@ -107,9 +109,9 @@ class Pre_Processing(BaseEstimator, TransformerMixin):
         
         ## optional parameters
         # data augmentation parameters
-        self.aug_method = kwargs.get('aug_method', None)  # data augmentation method
-        self.window_width = kwargs.get('window_width', 1.5)  # window width for time window data augmentation
-        self.window_step = kwargs.get('window_step', 0.5)  # window step for time window data augmentation
+        self.aug_method = aug_method  # data augmentation method
+        self.window_width = window_width # window width for time window data augmentation
+        self.window_step = window_step  # window step for time window data augmentation
         
         ## initialize the pre-processing steps
         
