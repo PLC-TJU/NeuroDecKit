@@ -1,5 +1,5 @@
 # original code: from pyriemann.spatialfilters import CSP
-# modified by Pan.LC on 2024/6/23
+# modified by LC.Pan on 2024/6/23
 # add sample_weight parameter to compute class means with weighted covariance matrices
 
 import numpy as np

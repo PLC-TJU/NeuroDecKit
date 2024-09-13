@@ -233,7 +233,7 @@ class MEKT(BaseEstimator, ClassifierMixin): #基于特征空间的迁移学习�
 
         2023-12-09 by heoohuan <heoohuan@163.com>（Add code annotation）
         
-        2024-06-23 by LC.Pan <coreylin@outlook.com>
+        2024-06-23 by LC.Pan <LC.Pan@outlook.com>
          - add fit method
          - add transform method 
          - add predict method

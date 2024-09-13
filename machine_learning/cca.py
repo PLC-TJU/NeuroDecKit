@@ -2,7 +2,7 @@
 #
 # Authors: Swolf <swolfforever@gmail.com>
 # Date: 2021/1/29
-# License: MIT License
+# License: BSD 3-Clause License
 """
 CCA and its variants.
 """

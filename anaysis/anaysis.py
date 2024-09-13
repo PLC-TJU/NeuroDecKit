@@ -1,8 +1,8 @@
 """
 Meta-Analysis Tool
-Author: Pan.LC <coreylin2023@outlook.com>
+Author: LC.Pan <panlincong@tju.edu.cn.com>
 Date: 2024/4/17
-License: MIT License
+License: BSD 3-Clause License
 
 Introduction:
 The Meta-Analysis Tool is a Python script designed to perform meta-analysis by comparing the 

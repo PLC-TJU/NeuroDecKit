@@ -6,8 +6,8 @@ with open("README.md", "r", errors="ignore", encoding='utf-8') as fh:
 setup(
     name='MI-All-dev',
     version='0.1',  
-    author='CoreyLin',
-    author_email='coreylin2023@outlook.com',
+    author='LC.Pan',
+    author_email='panlincong@tju.edu.cn.com',
     description='All Tools for MI-EEG Decoding',
     long_description=long_description,
     long_description_content_type="text/markdown",
@@ -40,7 +40,7 @@ setup(
     keywords=['python', 'package'],
     classifiers=[
         'Programming Language :: Python :: 3',
-        "License :: OSI Approved :: MIT License",
+        "License :: OSI Approved :: BSD 3-Clause License",
         "Operating System :: OS Independent",
     ],
 )

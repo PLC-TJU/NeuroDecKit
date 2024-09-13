@@ -1,5 +1,5 @@
 # This file contains the implementation of various transfer learning methods.
-# Author: CoreyLin
+# Author: LC.Pan
 # Date: 2024.6.21
 
 from sklearn.base import BaseEstimator, ClassifierMixin

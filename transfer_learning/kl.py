@@ -1,6 +1,6 @@
 """
 KL-Divergence Embedded Distribution Alignment (KEDA)
-Author: Pan.LC <coreylin2023@outlook.com>
+Author: LC.Pan <panlincong@tju.edu.cn.com>
 Date: 2024/3/14
 License: All rights reserved
 """

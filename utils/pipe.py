@@ -1,4 +1,4 @@
-# Author: Pan.LC
+# Author: LC.Pan
 # Date: 2024-06-21
 # Version: 0.1.0
 # Description: 定义一些用于构建和管理 sklearn Pipeline 的工具函数

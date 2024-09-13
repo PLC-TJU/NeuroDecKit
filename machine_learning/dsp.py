@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # DSP: Discriminal Spatial Patterns
 # Authors: Swolf <swolfforever@gmail.com>
-# License: MIT License
+# License: BSD 3-Clause License
 
 import numpy as np
 from numpy import ndarray

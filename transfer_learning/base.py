@@ -1,6 +1,6 @@
-# Authors: Pan.LC <panlincong@tju.edu.cn>
+# Authors: LC.Pan <panlincong@tju.edu.cn>
 # Date: 2024/4/7
-# License: MIT License
+# License: BSD 3-Clause License
 
 import numpy as np
 from typing import List, Union, Optional
@@ -240,7 +240,7 @@ class TLSplitter:
 
     Notes
     -----
-    .. modified:: Pan.LC 2024/6/23
+    .. modified:: LC.Pan 2024/6/23
     """
 
     def __init__(self, target_domain, cv, no_calibration=False, modeling=False):
@@ -358,7 +358,7 @@ class TLClassifier(BaseEstimator):
 
     Notes
     -----
-    .. modified:: Pan.LC 2024/6/23
+    .. modified:: LC.Pan 2024/6/23
     """
     
     def __init__(self, target_domain, estimator, tl_mode='tl', domain_weight=None):

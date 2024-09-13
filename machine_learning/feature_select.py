@@ -1,8 +1,8 @@
 # Off-line modeling program/ Transfer learning
 #
-# Authors: Corey Lin <coreylin2023@outlook.com>
+# Authors: Corey Lin <panlincong@tju.edu.cn.com>
 # Date: 2023/07/08
-# License: MIT License
+# License: BSD 3-Clause License
 
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.feature_selection import mutual_info_classif

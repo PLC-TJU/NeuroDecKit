@@ -1,6 +1,6 @@
 """
 TL_Classifier: Transfer Learning Classifier
-Author: Pan.LC <coreylin2023@outlook.com>
+Author: LC.Pan <panlincong@tju.edu.cn.com>
 Date: 2024/6/21
 License: All rights reserved
 """

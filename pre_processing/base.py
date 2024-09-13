@@ -1,8 +1,8 @@
 """
 This is the base.py file for preprocessing module.
-Author: Pan.LC <coreylin2023@outlook.com>
+Author: LC.Pan <panlincong@tju.edu.cn.com>
 Date: 2024/6/21
-License: MIT License
+License: BSD 3-Clause License
 """
 
 import numpy as np
