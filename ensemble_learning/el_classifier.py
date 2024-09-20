@@ -28,7 +28,7 @@ from transfer_learning import decode_domains
 class EL_Classifier(BaseEstimator, ClassifierMixin):
     def __init__(self,
                  fs_new=250,
-                 timesets=[[0, 4],[0, 2],[1, 3],[2, 4],[0, 3], [2, 4]],
+                 timesets=[[0, 4],[0, 2],[1, 3],[2, 4],[0, 3], [1, 4]],
                 # timesets=[[0, 4],[0, 2],[0.5, 2.5],[1, 3],[1.5, 3.5], [2, 4]],
                  freqsets=[[8, 30],[8, 13],[13, 18],[18, 26],[26, 30]],
                 #  timesets=[[0, 4],[0, 2]],
@@ -62,7 +62,6 @@ class EL_Classifier(BaseEstimator, ClassifierMixin):
         self.clf_method = kwargs.get('clf_method', None)
         self.end_method = kwargs.get('end_method', None)
         self.ete_method = kwargs.get('ete_method', None)
-        self.memory_location = kwargs.get('memory_location', None)
         
         if self.parasets is None:
             self.parasets = list(itertools.product(self.chansets, self.timesets, self.freqsets))
@@ -87,11 +86,6 @@ class EL_Classifier(BaseEstimator, ClassifierMixin):
                                   pre_est=pre_processor.process, 
                                   target_domain=self.target_domain, 
                                   tl_mode='TL',
-                                  memory = Memory(
-                                      location=self.memory_location, 
-                                      verbose=0, 
-                                      bytes_limit=1024*1024*1024*20
-                                      ),
                                   **self.kwargs,
                                   )
             

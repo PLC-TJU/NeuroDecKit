@@ -37,8 +37,10 @@ from pyriemann.transfer import TLDummy, TLStretch, TLRotate, MDWM
 from machine_learning import RiemannCSP as CSP
 from machine_learning import TRCSP, DCPM, TRCA, SBLEST, TSclassifier, TS, FGDA, FgMDM
 # from .mekt import MEKT
-from .mekt import MEDA as MEKT #有监督的MEKT
-from .kl import KEDA
+from .mekt import MEKT_supervised as MEKT #有监督的MEKT
+from .mekt import MEKT_improved as MEKT_P #改进的MEKT LC.Pan 2024.09.01
+from .mekt import MEKT_improved2 as MEKT_P2 #改进的MEKT LC.Pan 2024.09.01
+from .kl import KEDA # 未完成版本，还需要继续改进
 from .base import decode_domains, encode_datasets, TLClassifier
 from .rpa import RCT, STR, ROT
 from .rpa import TLCenter_online as TLCenter
@@ -51,7 +53,9 @@ __all__ = [
     'GBC', 'GNB', 'MLP', 'Covariances', 'TS', 'FGDA', 'MDM', 'FgMDM', 'RKNN',
     'RKSVM', 'TLDummy', 'TLCenter', 'TLStretch', 'TLRotate', 'MDWM', 'CSP',
     'TRCSP', 'DCPM', 'TRCA', 'SBLEST', 'TSclassifier', 'MEKT', 'RCT', 'STR',
-    'ROT', 'decode_domains', 'encode_datasets', 'TLClassifier', 'KEDA'
+    'ROT', 'decode_domains', 'encode_datasets', 'TLClassifier', 
+    'MEKT_P', 'MEKT_P2',
+    'KEDA',
 ]
 
 

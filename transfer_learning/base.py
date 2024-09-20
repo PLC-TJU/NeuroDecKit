@@ -223,8 +223,10 @@ class TLSplitter:
     ----------
     target_domain : str
         Domain considered as target.
-    cv : None | BaseCrossValidator | BaseShuffleSplit, default=None
+    cv : float | BaseCrossValidator | BaseShuffleSplit, default=None
         An instance of a cross validation iterator from sklearn.
+        if float, it is the fraction of the target domain data to use as the training set.
+        if BaseCrossValidator or BaseShuffleSplit, it is used as the cross-validation iterator.
     no_calibration : bool, default=False
         Whether to use the entire target domain data as the test set.
         if True, the entire target domain is used as the test set (i.e. 
@@ -245,7 +247,7 @@ class TLSplitter:
 
     def __init__(self, target_domain, cv, no_calibration=False, modeling=False):
         self.target_domain = target_domain
-        self.cv = cv
+        self.cv = cv 
         self.no_calibration = no_calibration
         self.modeling = modeling
 
@@ -290,11 +292,11 @@ class TLSplitter:
             yield train_idx, test_idx
             return
 
-        if self.cv in [0, 1]:
-            # Use last 70% of the target domain samples as the test set
-            train_idx = np.concatenate([idx_source, idx_target[:int(0.3*len(idx_target))]])
-            test_Idx = idx_target[int(0.3*len(idx_target)):]
-            yield train_idx, test_Idx
+        if isinstance(self.cv, float) and 0 < self.cv < 1:
+            # the value of cv is a fraction of the target domain data to use as the training set
+            train_idx = np.concatenate([idx_source, idx_target[:int(self.cv*len(idx_target))]])
+            test_idx = idx_target[int(self.cv*len(idx_target)):]
+            yield train_idx, test_idx
             return
 
         else:

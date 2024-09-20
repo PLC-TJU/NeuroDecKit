@@ -4,7 +4,7 @@ with open("README.md", "r", errors="ignore", encoding='utf-8') as fh:
     long_description = fh.read()
 
 setup(
-    name='MI-All-dev',
+    name='NeuroDecKit',
     version='0.1',  
     author='LC.Pan',
     author_email='panlincong@tju.edu.cn.com',
@@ -14,11 +14,11 @@ setup(
     url='https://github.com/TJU-PanLC/NeuroDecKit',
     packages=find_packages(),  
     install_requires=[
-        'braindecode==0.8.1',
+        'braindecode',
         'catboost==1.2.5',
         'einops==0.8.0',
         'geoopt==0.5.0',
-        'h5py==3.8.0',
+        'h5py',
         'joblib==1.2.0',
         'lightgbm==4.4.0',
         'mne==1.4.2',

@@ -69,14 +69,15 @@ class FilterBank:
             b, a      = signal.cheby2(order, self.gstop, ws, btype='bandpass')
             self.filter_coeff.update({i:{'b':b,'a':a}})
         
-        # pass_list = [[4,12],[12,30]]
+        # pass_list = [[8, 30],[8, 13],[13, 18],[18, 26],[26, 30]]
         # for i, f_pass in enumerate(np.array(pass_list)):
         #     f_stop    = np.asarray([f_pass[0]-self.f_trans, f_pass[1]+self.f_trans])
         #     wp        = f_pass/Nyquist_freq
         #     ws        = f_stop/Nyquist_freq
         #     order, wn = cheb2ord(wp, ws, self.gpass, self.gstop)
         #     b, a      = signal.cheby2(order, self.gstop, ws, btype='bandpass')
-        #     self.filter_coeff.update({i+len(self.f_pass):{'b':b,'a':a}})
+        #     # self.filter_coeff.update({i+len(self.f_pass):{'b':b,'a':a}})
+        #     self.filter_coeff.update({i:{'b':b,'a':a}})
             
         return self.filter_coeff
 

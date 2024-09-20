@@ -35,7 +35,7 @@ def stouffers_method(p_values, sample_sizes):
     combined_p = stats.norm.sf(abs(combined_z)) * 2  # for two-tailed tests
     return combined_z, combined_p
 
-def meta_analysis(acc_A, acc_B, test_method=None, correction_method=None, perm_cutoff=20):
+def meta_analysis(acc_A, acc_B, test_method=None, correction_method=None, perm_cutoff=20, alternative="two-sided"):
     """
     Perform meta-analysis to compare the significance of differences between two algorithms.
 
@@ -66,15 +66,18 @@ def meta_analysis(acc_A, acc_B, test_method=None, correction_method=None, perm_c
         
         if test_method is None:
             _test_method = 'permutation_t' if len(data_A) < perm_cutoff else 'wilcoxon'
+        else:
+            _test_method = test_method
         
         if _test_method == 'paired_t':
-            t_val, p_val = stats.ttest_rel(data_A, data_B)    
+            t_val, p_val = stats.ttest_rel(data_A, data_B, alternative=alternative)    
         elif _test_method == 'independent_t':
-            t_val, p_val = stats.ttest_ind(data_A, data_B)
+            t_val, p_val = stats.ttest_ind(data_A, data_B, alternative=alternative)
         elif _test_method == 'permutation_t':
             t_val, p_val = stats.ttest_ind(data_A, data_B, 
                                            permutations=10000, 
-                                           random_state=42
+                                           random_state=42,
+                                           alternative=alternative,
                                            )    
         elif _test_method == 'wilcoxon':
             t_val, p_val = stats.wilcoxon(data_A, data_B)

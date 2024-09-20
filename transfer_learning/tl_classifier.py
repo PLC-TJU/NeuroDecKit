@@ -12,11 +12,12 @@ from utils import check_pipeline_compatibility as check_compatible
 
 class TL_Classifier(BaseEstimator, ClassifierMixin): 
     def __init__(self, dpa_method='TLDUMMY', fee_method='CSP', fes_method='MIC-K', clf_method='SVM', 
-                 end_method=None, ete_method=None, pre_est=None, target_domain=None, tl_mode='TL', 
+                 end_method=None, ete_method=None, pre_est=None, *, target_domain=None, tl_mode='TL', 
                  domain_tags=None, domain_weight=None, csp_nfilter=8, fea_num=20, fea_percent=30, 
-                 cov_estimator='lwf', random_state=42, memory=None, 
+                 cov_estimator='lwf', random_state=42, 
                  **kwargs):
         
+        self.kwargs = kwargs
         # 初始化参数        
         self.model = None
         self._tl_flag = True
@@ -45,8 +46,7 @@ class TL_Classifier(BaseEstimator, ClassifierMixin):
         self.cov_estimator = cov_estimator # 样本协方差矩阵估计器
         self.random_state = random_state # 随机种子
         
-        self.memory = memory  # 缓存地址 Memory(location=None, verbose=0)
-        self.kwargs = kwargs
+        self.memory = kwargs.get('memory', None) # 缓存地址 Memory(location=None, verbose=0)
         
         # 预处理器
         pre_est = self.check_preest(self.pre_est)
@@ -409,6 +409,22 @@ class TL_Classifier(BaseEstimator, ClassifierMixin):
             'MEKT-RFECV-MLP':     ('mekt-rfecv-mlp',     MEKT(target_domain=self.target_domain, estimator=MLP(max_iter=1000, random_state=self.random_state), selector=RFECV(estimator=LR(random_state=self.random_state), step=1, cv=5))),
 
             #新增
+            'MEKT-P-LDA':         ('mekt-p-lda',         MEKT_P(target_domain=self.target_domain, estimator=LDA(solver='eigen', shrinkage='auto'), **self.kwargs)),
+            'MEKT-P-LR':          ('mekt-p-lr',          MEKT_P(target_domain=self.target_domain, estimator=LR(random_state=self.random_state), **self.kwargs)),
+            'MEKT-P-SVM':         ('mekt-p-svm',         MEKT_P(target_domain=self.target_domain, estimator=SVC(C=1, kernel='linear'), **self.kwargs)),
+            'MEKT-P-MLP':         ('mekt-p-mlp',         MEKT_P(target_domain=self.target_domain, estimator=MLP(max_iter=1000, random_state=self.random_state), **self.kwargs)),
+            'MEKT-P-MIC-K-LDA':   ('mekt-p-mic-k-lda',   MEKT_P(
+                target_domain=self.target_domain, 
+                estimator=LDA(solver='eigen', shrinkage='auto'), 
+                selector=SelectKBest(mutual_info_classif, k=self.fea_num), 
+                **self.kwargs)),
+            
+            'MEKT-P2-MIC-K-LDA':   ('mekt-P2-mic-k-lda',   MEKT_P2(
+                target_domain=self.target_domain, 
+                estimator=LDA(solver='eigen', shrinkage='auto'), 
+                selector=SelectKBest(mutual_info_classif, k=self.fea_num), 
+                **self.kwargs)),
+            
             'ABC-MEKT':           ('abc-mekt',           ABC(MEKT(target_domain=self.target_domain), n_estimators=n_estimators, algorithm=algorithm)),
             'ABC-MEKT-LDA':       ('abc-mekt-lda',       ABC(MEKT(target_domain=self.target_domain, estimator=LDA(solver='eigen', shrinkage='auto')), n_estimators=n_estimators, algorithm=algorithm)),
             'ABC-MEKT-LR':        ('abc-mekt-lr',        ABC(MEKT(target_domain=self.target_domain, estimator=LR(random_state=self.random_state)), n_estimators=n_estimators, algorithm=algorithm)),
