@@ -285,10 +285,12 @@ class TLSplitter:
             yield train_idx, test_idx
             return
 
-        if self.no_calibration:
+        if self.no_calibration or self.cv == 0:
             # Use all target domain samples as the test set
             train_idx = idx_source
             test_idx = idx_target
+            self.no_calibration = True
+            self.cv = 0
             yield train_idx, test_idx
             return
 

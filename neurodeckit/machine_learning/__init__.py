@@ -17,7 +17,8 @@ from .csp import CSP_weighted as RiemannCSP
 from .csp import TRCSP_weighted as TRCSP
 from .csp import FBCSP
 
-from .sblest import SBLEST_model as SBLEST
+from .sblest import SBLEST
+from .sblest import sblest_kernel
 
 from .feature_select import MutualInformationSelector as MIBIF
 from .feature_select import LassoFeatureSelector as LassoSelector
@@ -49,15 +50,13 @@ __all__ = [
     'TRCSP',
     'FBCSP',
     'SBLEST',
+    'sblest_kernel',
     'MIBIF',
     'LassoSelector',
     'recursive_reference_center',
     'chesk_sample_weight',
     'ML_Classifier'
 ]
-
-
-
 
 
 

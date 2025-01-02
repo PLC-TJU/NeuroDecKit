@@ -137,7 +137,7 @@ class Dataset_MI:
             "Cho2017": (Cho2017, 512, 64, 3),
             "GrosseWentrup2009": (GrosseWentrup2009, 500, 128, 7),
             "Lee2019_MI": (Lee2019_MI, 1000, 62, 4),
-            "PhysionetMI": (PhysionetMI, 160, 64, 3),
+            "PhysionetMI": (PhysionetMI, 160, 64, 3),  #对于该数据集，不建议fs低于160Hz
             "Schirrmeister2017": (Schirrmeister2017, 500, 128, 4),
             "Shin2017A": (Shin2017A, 200, 30, 10),
             "Weibo2014": (Weibo2014, 200, 60, 4),
@@ -194,7 +194,7 @@ class Dataset_Left_Right_MI(Dataset_MI):
             "Cho2017": (Cho2017, 512, 64, 3),                      # 52 subjects
             "GrosseWentrup2009": (GrosseWentrup2009, 500, 128, 7), # 10 subjects
             "Lee2019_MI": (Lee2019_MI, 1000, 62, 4),               # 54 subjects
-            "PhysionetMI": (PhysionetMI, 160, 64, 3),              #109 subjects
+            "PhysionetMI": (PhysionetMI, 160, 64, 3),              #109 subjects  #对于该数据集，不建议fs低于160Hz
             "Schirrmeister2017": (Schirrmeister2017, 500, 128, 4), # 14 subjects
             "Shin2017A": (Shin2017A, 200, 30, 10),                 # 29 subjects
             "Weibo2014": (Weibo2014, 200, 60, 4),                  # 10 subjects

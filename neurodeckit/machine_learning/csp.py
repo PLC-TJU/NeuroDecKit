@@ -193,7 +193,6 @@ class FBCSP(FilterBank):
         self.nfilter=nfilter        
         self.n_components_select=n_components_select
         
-        
         self.banks=generate_intervals(4, 4, (4, 40)) if banks is None else banks
         self.filterbanks = generate_filterbank(self.banks,
                                           adjust_intervals(self.banks),
@@ -210,9 +209,24 @@ class FBCSP(FilterBank):
                f"n_components_select={self.n_components_select})"
     
     def fit(self, X: ndarray, y: ndarray):  # type: ignore[override]
+        """
+        Fit the filterbank CSP algorithm.
+
+        Parameters
+        ----------
+        X : ndarray, shape (n_trials, n_channels, n_times)
+            Set of covariance matrices.
+        y : ndarray, shape (n_trials,)
+            Labels for each trial.
+
+        Returns
+        -------
+        self : FBCSP instance
+            The FBCSP instance.
+        """
         super().fit(X, y)
         features = super().transform(X)
-        if self.n_mutualinfo_components is None:
+        if self.n_components_select is None:
             estimator = make_pipeline(
                 *[SelectKBest(score_func=mutual_info_classif, k="all"), SVC()]
             )
@@ -231,14 +245,11 @@ class FBCSP(FilterBank):
                 verbose=False,
             )
             gs.fit(features, y)
-            self.best_n_mutualinfo_components_ = gs.best_params_["selectkbest__k"]
-            self.selector_ = SelectKBest(
-                score_func=mutual_info_classif, k=self.best_n_mutualinfo_components_
-            )
-        else:
-            self.selector_ = SelectKBest(
-                score_func=mutual_info_classif, k=self.n_mutualinfo_components
-            )
+            self.n_components_select = gs.best_params_["selectkbest__k"]
+
+        self.selector_ = SelectKBest(
+            score_func=mutual_info_classif, k=self.n_components_select
+        )
         self.selector_.fit(features, y)
         return self
 

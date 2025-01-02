@@ -1,3 +1,9 @@
+"""
+modiified from https://github.com/EEGdecoding/Code-SBLEST/blob/main/SBLEST_model.py <201710102248@mail.scut.edu.cn>
+author: LC, Pan <panlincong@tju.edu.cn>
+date: 2024-03-11
+"""
+
 import torch
 import warnings
 import numpy as np
@@ -8,37 +14,35 @@ from sklearn.base import BaseEstimator, ClassifierMixin
 
 warnings.filterwarnings('ignore')
 
-def SBLEST(X, Y, K, tau, Epoch=5000, epoch_print=100, device='cpu'):
+def sblest_kernel(X, Y, epoch=5000, tol=1e-5, epoch_print=None, device='cpu'):
     """
-    SBLEST    : Sparse Bayesina Learning for End-to-end Spatio-Temporal-filtering-based single-trial EEG classification
+    SBLEST     : Sparse Bayesina Learning for End-to-end Spatio-Temporal-filtering-based 
+                 single-trial EEG classification [1]
 
     --- Parameters ---
-    Y         : True label vector. [M, 1].
-    X         : M trials of C (channel) x T (time) EEG signals. [C, T, M].
-    K         : Order of FIR filter.
-    tau       : Time delay parameter.
+    X          : M trials of Feature. [M, (K*C)^2].
+    Y          : True label vector. [M, 1].
+    epoch      : Number of iterations for optimization.
+    tol        : Tolerance for convergence.
+    epoch_print: Number of iterations for printing loss.
+    device     : 'cpu' or 'cuda'
 
     --- Returns ---
-    W         : Estimated low-rank weight matrix. [K*C, K*C].
-    alpha     : Classifier weights. [L, 1].
-    V         : Spatio-temporal filter matrix. [K*C, L].
-                Each column of V represents a spatio-temporal filter.
-    Wh        : Whitening matrix for enhancing covariance matrices (required for prediction on test set). [(K*C)^2, (K*C)^2].
+    W          : Estimated low-rank weight matrix. [K*C, K*C].
+    alpha      : Classifier weights. [L, 1].
+    V          : Spatio-temporal filter matrix. [K*C, L].
+                 Each column of V represents a spatio-temporal filter.
 
     Reference:
-    "W. Wang, F. Qi, D. Wipf, C. Can, T. Yu, Z. Gu, Y. Li, Z. Yu, W. Wu. Sparse Bayesian Learning for End-to-End EEG Decoding
-    (accepted by IEEE Transactions on Pattern Analysis and Machine Intelligence)."
-
-    Wenlong Wang, Feifei Qi, Wei Wu, 2023.
-    Email: 201710102248@mail.scut.edu.cn
+    [1] W. Wang et al. (2023), "Sparse Bayesian Learning for End-to-End EEG Decoding," in IEEE 
+    Transactions on Pattern Analysis and Machine Intelligence, vol. 45, no. 12, pp. 15632-15649
+    
     """
-
-    # Compute enhanced covariance matrices and whitening matrix
-    R_train, Wh = Enhanced_cov(X, K, tau, train=1, device=device)
-    # print('\n')
-
+    X = torch.tensor(X, dtype=torch.float64, device=device)
+    Y = torch.tensor(Y, dtype=torch.float64, device=device)
+    
     # Check properties of R
-    M, D_R = R_train.shape  # M: number of samples; D_R: dimension of vec(R_m)
+    M, D_R = X.shape  # M: number of samples; D_R: dimension of vec(R_m)
     KC = round(np.sqrt(D_R))
     Loss_old = 1e12
     threshold = 0.05
@@ -47,7 +51,7 @@ def SBLEST(X, Y, K, tau, Epoch=5000, epoch_print=100, device='cpu'):
 
     # Check if R is symmetric
     for j in range(M):
-        row_cov = reshape(R_train[j, :], (KC, KC))
+        row_cov = reshape(X[j, :], (KC, KC))
         row_cov = (row_cov + row_cov.T) / 2
         assert norm(row_cov - row_cov.T) < 1e-4, "ERROR: Measurement row does not form symmetric matrix"
 
@@ -57,7 +61,7 @@ def SBLEST(X, Y, K, tau, Epoch=5000, epoch_print=100, device='cpu'):
     lambda_noise = 1.  # variance of the additive noise set to 1
 
     # Optimization loop
-    for i in range(Epoch+1):
+    for i in range(epoch):
 
         # update B,Sigma_y,u
         RPR = zeros(M, M, dtype=float64).to(device)
@@ -65,9 +69,9 @@ def SBLEST(X, Y, K, tau, Epoch=5000, epoch_print=100, device='cpu'):
         for j in range(KC):
             start = j * KC
             stop = start + KC
-            Temp = mm(Psi, R_train[:, start:stop].T)
+            Temp = mm(Psi, X[:, start:stop].T)
             B[start:stop, :] = Temp
-            RPR = RPR + mm(R_train[:, start:stop], Temp)
+            RPR = RPR + mm(X[:, start:stop], Temp)
         Sigma_y = RPR + lambda_noise * eye(M, dtype=float64).to(device)
         uc = mm(mm(B, inverse(Sigma_y)), Y)  # maximum a posterior estimation of uc
         Uc = reshape(uc, (KC, KC))
@@ -76,11 +80,11 @@ def SBLEST(X, Y, K, tau, Epoch=5000, epoch_print=100, device='cpu'):
 
         # Update Phi (dual variable of Psi)
         Phi = []
-        SR = mm(inverse(Sigma_y), R_train)
+        SR = mm(inverse(Sigma_y), X)
         for j in range(KC):
             start = j * KC
             stop = start + KC
-            Phi_temp = Psi - Psi @ R_train[:, start:stop].T @ SR[:, start:stop] @ Psi
+            Phi_temp = Psi - Psi @ X[:, start:stop].T @ SR[:, start:stop] @ Psi
             Phi.append(Phi_temp)
 
         # Update Psi
@@ -97,22 +101,25 @@ def SBLEST(X, Y, K, tau, Epoch=5000, epoch_print=100, device='cpu'):
         for j in range(KC):
             start = j * KC
             stop = start + KC
-            theta = theta + (Phi[j] @ R_train[:, start:stop].T @ R_train[:, start:stop]).trace()
+            theta = theta + (Phi[j] @ X[:, start:stop].T @ X[:, start:stop]).trace()
 
         # Update lambda
-        lambda_noise = ((norm(Y - (R_train @ u).reshape(-1, 1), p=2) ** 2).sum() + theta) / M
+        lambda_noise = ((norm(Y - (X @ u).reshape(-1, 1), p=2) ** 2).sum() + theta) / M
 
         # Convergence check
         Loss = Y.T @ inverse(Sigma_y) @ Y + log(det(Sigma_y))
         delta_loss = abs(Loss_old - Loss.cpu().numpy()) / abs(Loss_old)
-        if delta_loss < 2e-4:
-            # print('EXIT: Change in loss below threshold')
+        if delta_loss < tol:
+            # print('EXIT: Change in loss below tolerance threshold')
             break
         Loss_old = Loss.cpu().numpy()
         if epoch_print != 0 and epoch_print is not None:
-            if i % epoch_print == 99:
-                print('Iterations: ', str(i+1), '  lambda: ', str(lambda_noise.cpu().numpy()), '  Loss: ', float(Loss.cpu().numpy()),
-                    '  Delta_Loss: ', float(delta_loss))
+            if (i+1) % epoch_print == 0:
+                print('Iterations: ', str(i+1), 
+                      '  lambda: ', str(lambda_noise.cpu().numpy()), 
+                      '  Loss: ', float(Loss.cpu().numpy()), 
+                      '  Delta_Loss: ', float(delta_loss)
+                      )
 
     # Eigen-decomposition of W
     W = U
@@ -130,8 +137,11 @@ def SBLEST(X, Y, K, tau, Epoch=5000, epoch_print=100, device='cpu'):
     index = np.where(w_norm > threshold)[0]    # indices of selected V according to a pre-defined threshold,.e.g., 0.05
     V = V_all[:, index]
     alpha = alpha_all[index]
+    
+    # # Return results as numpy arrays in CPU memory
+    W = W.double().cpu().numpy()
 
-    return W, alpha, V, Wh
+    return W, alpha, V
 
 
 def matrix_operations(A):
@@ -179,7 +189,7 @@ def computer_acc(predict_Y, Y_test):
     return accuracy
 
 
-def Enhanced_cov(X, K, tau, Wh=None, train=1, device='cpu'):
+def enhanced_cov(X, K, tau, Wh=None, device='cpu'):
     """
     Compute enhanced covariance matrices
 
@@ -190,13 +200,18 @@ def Enhanced_cov(X, K, tau, Wh=None, train=1, device='cpu'):
     Wh        : Whitening matrix for enhancing covariance matrices.
                 In training mode(train=1), Wh will be initialized as following python_code.
                 In testing mode(train=0), Wh will receive the concrete value.
-    train     : train = 1 denote training mode, train = 0 denote testing mode.
 
     --- Returns ---
     R         : Enhanced covariance matrices. [M, (K*C)^2]
-    Wh : Whitening matrix. [(K*C)^2, (K*C)^2].
+    Wh        : Whitening matrix. [(K*C)^2, (K*C)^2].
     """
-
+    # Ensure tau is a list if it's a scalar
+    if isinstance(tau, int):
+        tau = [tau]
+    
+    # Ensure X is a tensor
+    X = torch.tensor(X, dtype=torch.float64, device=device)
+    
     # Initialization, [KC, KC]: dimension of augmented covariance matrix
     X_order_k = None
     C, T, M = X.shape
@@ -209,7 +224,7 @@ def Enhanced_cov(X, K, tau, Wh=None, train=1, device='cpu'):
 
         # Generate augmented EEG data
         for k in range(K):
-            n_delay = k * tau
+            n_delay = tau[k]
             if n_delay == 0:
                 X_order_k = X_m.clone()
             else:
@@ -227,12 +242,12 @@ def Enhanced_cov(X, K, tau, Wh=None, train=1, device='cpu'):
         Sig_Cov = Sig_Cov + R_m
 
     # Compute Whitening matrix (Rp).
-    if train == 1:
+    if Wh is None:
         Wh = Sig_Cov / M
 
     # Whitening, logarithm transform, and Vectorization
     Cov_whiten = zeros(M, K * C, K * C, dtype=float64).to(device)
-    R_train = zeros(M, K * C * K * C, dtype=float64).to(device)
+    R = zeros(M, K * C * K * C, dtype=float64).to(device)
 
     for m in range(M):
         # progress_bar(m, M)
@@ -243,15 +258,18 @@ def Enhanced_cov(X, K, tau, Wh=None, train=1, device='cpu'):
         Cov_whiten[m, :, :] = (temp_cov + temp_cov.T) / 2
         R_m = logm(Cov_whiten[m, :, :])
         R_m = R_m.reshape(R_m.numel())  # column-wise vectorization
-        R_train[m, :] = R_m
+        R[m, :] = R_m
+    
+    # Return results as numpy arrays in CPU memory
+    R = R.cpu().numpy()
 
-    return R_train, Wh
+    return R, Wh
 
-class SBLEST_model(BaseEstimator, ClassifierMixin):
-    def __init__(self, K=2, tau=1, Epoch=5000, epoch_print=100, device='cpu'):
+class SBLEST(BaseEstimator, ClassifierMixin):
+    def __init__(self, K=2, tau=[0, 1], epoch=5000, epoch_print=None, device='cpu'):
         self.K = K
         self.tau = tau
-        self.Epoch = Epoch
+        self.epoch = epoch
         self.epoch_print = epoch_print
         self.device = device if torch.cuda.is_available() else 'cpu'
         self.classes_ = None
@@ -262,40 +280,35 @@ class SBLEST_model(BaseEstimator, ClassifierMixin):
     
     def fit(self, X, Y):
         X = X.transpose(1, 2, 0)    # [C, T, M] -> [T, M, C]
-        self.classes_ = np.unique(Y)     # 保存标签值
+        self.classes_ = np.unique(Y)     
         Y = np.where(Y == np.unique(Y)[0], 1, -1)# Convert labels to -1 and 1
         Y = np.array(Y).reshape(-1, 1)
-        # Convert inputs to torch tensors if they are numpy ndarrays
-        X = torch.tensor(X, dtype=torch.float64, device=self.device)
-        Y = torch.tensor(Y, dtype=torch.float64, device=self.device)
-        self.W, self.alpha, self.V, self.Wh = SBLEST(X, Y, self.K, self.tau, self.Epoch, self.epoch_print, self.device)
+        R_train, self.Wh = enhanced_cov(X, self.K, self.tau, device=self.device)
+        self.W, self.alpha, self.V = sblest_kernel(
+            R_train, Y, epoch=self.epoch, epoch_print=self.epoch_print, device=self.device)
         return self 
 
     def transform(self, X):
         X = X.transpose(1, 2, 0)
-        X = torch.tensor(X, dtype=torch.float32, device=self.device)
-        R_test, _ = Enhanced_cov(X, self.K, self.tau, self.Wh, train=0, device=self.device)
+        R_test, _ = enhanced_cov(X, self.K, self.tau, self.Wh, device=self.device)
         return R_test
 
     def predict(self, X):
         if self.W is None:
-            raise ValueError("Model is not trained yet. Please call 'fit' with appropriate arguments before calling 'predict'.")
+            raise ValueError("Model is not trained yet. Please call 'fit' with \
+                             appropriate arguments before calling 'predict'.")
         R_test = self.transform(X)
         vec_W = self.W.T.flatten()
         predict_Y = R_test @ vec_W
-        predict_Y = predict_Y.to('cpu') if predict_Y.is_cuda else predict_Y
         return np.where(predict_Y > 0, self.classes_[0], self.classes_[1])
     
     def decision_function(self, X):
         if self.W is None:
-            raise ValueError("Model is not trained yet. Please call 'fit' with appropriate arguments before calling 'decision_function'.")
+            raise ValueError("Model is not trained yet. Please call 'fit' with \
+                             appropriate arguments before calling 'decision_function'.")
         R_test = self.transform(X)
         vec_W = self.W.T.flatten()
         predict_Y = R_test @ vec_W
-        predict_Y = predict_Y.to('cpu') if predict_Y.is_cuda else predict_Y
-        return -predict_Y.numpy()
+        return -predict_Y
     
-    def score(self, X, Y):
-        Y_pred = self.predict(X)
-        return np.mean(Y_pred == Y)
     
