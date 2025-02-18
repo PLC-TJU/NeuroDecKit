@@ -1,4 +1,4 @@
-from .meat_anaysis import meta_analysis
+from .meta_anaysis import meta_analysis
 
 
 
