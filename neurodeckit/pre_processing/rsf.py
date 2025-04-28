@@ -2,6 +2,11 @@
 # Author: Pan Lincong
 # Edition date: 5 Mar 2024
 
+# If you use this code, please cite:
+# [1] L. Pan et al., “Enhancing motor imagery EEG classification with a Riemannian geometry-based
+# spatial filtering (RSF) method,” Neural Networks, vol. 188, p. 107511, 2025, 
+# doi: 10.1016/j.neunet.2025.107511.
+
 import numpy as np
 from sklearn.base import BaseEstimator, TransformerMixin
 from scipy.optimize import minimize
