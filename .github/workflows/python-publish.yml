@@ -42,6 +42,7 @@ jobs:
           path: dist/
 
   publish:
+    name: Publish to PyPI
     needs: build
     runs-on: ubuntu-latest
     steps:
@@ -56,4 +57,4 @@ jobs:
         with:
           # 指定打包产物目录
           packages-dir: dist/
-          pypi-token: ${{ secrets.PYPI_API_TOKEN }}
+          password: ${{ secrets.PYPI_API_TOKEN }}
