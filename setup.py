@@ -36,7 +36,7 @@ setup(
     keywords=['python', 'package'],
     classifiers=[
         'Programming Language :: Python :: 3',
-        "License :: OSI Approved :: BSD 3-Clause License",
+        "License :: OSI Approved :: BSD License",
         "Operating System :: OS Independent",
     ],
 )
