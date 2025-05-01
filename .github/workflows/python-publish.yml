@@ -54,5 +54,5 @@ jobs:
         with:
           # 指定打包产物目录
           packages-dir: dist/
-          username: __token__     # <-- 必须写！
+          user: __token__     # <-- 必须写！
           password: ${{ secrets.PYPI_API_TOKEN }}  # <-- 必须写！&#8203;:contentReference[oaicite:0]{index=0}
