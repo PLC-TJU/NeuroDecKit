@@ -1,26 +1,22 @@
 name: Publish NeuroDecKit to PyPI
 
-# 仅在“Publish release”时触发
 on:
   release:
     types: [published]
 
-# 这里只留最小权限：读源码、写包
 permissions:
-  contents: read
-  packages: write
+  contents: read      # 读取源码
+  packages: write     # 用于上传包到 PyPI
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
-          python-version: '3.x'
+          python-version: "3.x"
 
       - name: Install build tools
         run: |
@@ -45,16 +41,18 @@ jobs:
     name: Publish to PyPI
     needs: build
     runs-on: ubuntu-latest
+
     steps:
-      - name: Download dist
+      - name: Download built distributions
         uses: actions/download-artifact@v4
         with:
           name: dist
           path: dist/
 
-      - name: Publish to PyPI
+      - name: Publish to PyPI via Twine
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           # 指定打包产物目录
           packages-dir: dist/
-          password: ${{ secrets.PYPI_API_TOKEN }}
+          username: __token__     # <-- 必须写！
+          password: ${{ secrets.PYPI_API_TOKEN }}  # <-- 必须写！&#8203;:contentReference[oaicite:0]{index=0}
