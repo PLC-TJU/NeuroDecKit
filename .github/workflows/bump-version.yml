@@ -8,7 +8,7 @@ on:
       - 'setup.py'
 
 permissions:
-  contents: write            # 允许创建 commit 与 tag
+  contents: write          
 
 jobs:
   bump-and-publish:
