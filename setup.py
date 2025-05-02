@@ -1,18 +1,33 @@
+import io
+import os
 from setuptools import setup, find_packages
 
-with open("README.md", "r", errors="ignore", encoding='utf-8') as fh:
-    long_description = fh.read()
+# 读取版本号
+here = os.path.abspath(os.path.dirname(__file__))
+version_ns = {}
+with open(os.path.join(here, 'neurodeckit', '_version.py')) as vf:
+    exec(vf.read(), version_ns)
+
+# 读取 README
+with io.open(os.path.join(here, 'README.md'), encoding='utf-8') as f:
+    long_description = f.read()
 
 setup(
     name='neurodeckit',
-    version='0.1.0',  
-    author='LC.Pan',
+    version=version_ns['__version__'],
+    author='LC. Pan',
     author_email='panlincong@tju.edu.cn',
     description='Full chain toolkit for EEG signal decoding',
     long_description=long_description,
     long_description_content_type="text/markdown",
     url='https://github.com/PLC-TJU/NeuroDecKit',
-    packages=find_packages(),  
+    project_urls={
+        'Documentation': 'https://github.com/PLC-TJU/NeuroDecKit#readme',
+        'Source': 'https://github.com/PLC-TJU/NeuroDecKit',
+        'Tracker': 'https://github.com/PLC-TJU/NeuroDecKit/issues',
+    },
+    packages=find_packages(exclude=('tests',)),
+    python_requires='>=3.10',
     install_requires=[
         'braindecode',
         'einops',
@@ -25,7 +40,7 @@ setup(
         'pooch',
         'psutil',
         'pynvml',
-        'pyriemann==0.6',
+        'pyriemann>=0.6.0',
         'scikit_learn',
         'scipy',
         'skorch',
@@ -39,4 +54,5 @@ setup(
         "License :: OSI Approved :: BSD License",
         "Operating System :: OS Independent",
     ],
+    license='BSD-3-Clause',
 )
