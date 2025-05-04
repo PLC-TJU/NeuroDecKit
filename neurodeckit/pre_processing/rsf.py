@@ -11,7 +11,7 @@ import numpy as np
 from sklearn.base import BaseEstimator, TransformerMixin
 from scipy.optimize import minimize
 import scipy.linalg as la
-from scipy.linalg import eigh, eig
+from scipy.linalg import eigh
 from pyriemann.utils.covariance import covariances
 from pyriemann.utils.mean import mean_covariance
 from pyriemann.spatialfilters import CSP
@@ -21,7 +21,7 @@ from pyriemann.utils.distance import distance
 
 # 假设你有P1, P2, N, W0作为输入
 # W_optimal = optimizeRiemann(P1, P2, N, W0)
-def optimizeRiemann_old(P1, P2, W0=None, N=8, maxiter=5000,):
+def optimizeRiemann_old(P1, P2, W0=None, N=8, maxiter=5000):
     M = P1.shape[0]
     
     if W0 is None:

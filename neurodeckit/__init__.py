@@ -1,6 +1,4 @@
 # This file is the main file of the NeuroDecKit package.
-__version__ = '0.1.0'
-
 from . import analysis
 from . import loaddata
 from . import deep_learning

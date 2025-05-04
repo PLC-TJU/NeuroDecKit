@@ -2,7 +2,7 @@ Metadata-Version: 2.1
 Name: neurodeckit
 Version: 0.1.0
 Summary: Full chain toolkit for EEG signal decoding
-Home-page: https://github.com/TJU-PanLC/NeuroDecKit
+Home-page: https://github.com/PLC-TJU/NeuroDecKit
 Author: LC.Pan
 Author-email: panlincong@tju.edu.cn
 Keywords: python,package
