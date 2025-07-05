@@ -6,7 +6,7 @@
 # more datasets: https://github.com/NeuroTechX/moabb/tree/master/moabb/datasets
 # dataset information: https://neurotechx.github.io/moabb/dataset_summary.html
 
-# Pan et al. 对moabb库进行了一些可有可无的调整,用于灵活的修改数据集的保存地址,但这是不必要的。
+# Pan et al. 对moabb库进行了一些小调整,用于灵活的修改数据集的保存地址,但这是不必要的。
 # 可以使用原版moabb库和pan2023.py文件中的函数来加载Pan2023数据集。
 import numpy as np
 from moabb.paradigms import LeftRightImagery, MotorImagery
@@ -27,6 +27,7 @@ from moabb.datasets import (BNCI2014_001,
                             )
 
 from .pan2023 import Pan2023
+from .pan2025 import Pan2025
 from .wrcc_bcic_mi import BCIC2024A, BCIC2023A, BCIC2023B, BCIC2023C
 from .liu2024 import Liu2024
 
@@ -43,6 +44,7 @@ def dataset_loader(dataset_name, subjects, new_fs = 160):
         "Weibo2014": (Weibo2014, 200),
         "Zhou2016": (Zhou2016, 250),
         'Pan2023': (Pan2023, 250),
+        "Pan2025": (Pan2025, 250), 
     }
 
     # 检查数据集名称是否有效
@@ -143,6 +145,7 @@ class Dataset_MI:
             "Weibo2014": (Weibo2014, 200, 60, 4),
             "Zhou2016": (Zhou2016, 250, 14, 5),
             'Pan2023': (Pan2023, 250, 28, 4),
+            "Pan2025": (Pan2025, 250, 28, 4), 
             'BCIC2024A': (BCIC2024A, 1000, 59, 4),
             'BCIC2023A': (BCIC2023A, 1000, 59, 4),
             'BCIC2023B': (BCIC2023B, 1000, 59, 4),
@@ -199,7 +202,8 @@ class Dataset_Left_Right_MI(Dataset_MI):
             "Shin2017A": (Shin2017A, 200, 30, 10),                 # 29 subjects
             "Weibo2014": (Weibo2014, 200, 60, 4),                  # 10 subjects
             "Zhou2016": (Zhou2016, 250, 14, 5),                    #  4 subjects
-            'Pan2023': (Pan2023, 250, 28, 4),                      # 14 subjects
+            "Pan2023": (Pan2023, 250, 28, 4),                      # 14 subjects
+            "Pan2025": (Pan2025, 250, 28, 4),                      # 10 subjects
         }
         # 检查数据集名称是否有效
         if dataset_name not in datasets:

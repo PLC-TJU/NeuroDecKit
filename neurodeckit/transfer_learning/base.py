@@ -225,7 +225,9 @@ class TLSplitter:
         Domain considered as target.
     cv : float | BaseCrossValidator | BaseShuffleSplit, default=None
         An instance of a cross validation iterator from sklearn.
-        if float, it is the fraction of the target domain data to use as the training set.
+        if float (0 <= cv <= 1), it is the fraction of the target domain data to use as the training set.
+        if 0, it is equivalent to no_calibration=True.
+        if 1, it is equivalent to modeling=True.
         if BaseCrossValidator or BaseShuffleSplit, it is used as the cross-validation iterator.
     no_calibration : bool, default=False
         Whether to use the entire target domain data as the test set.
@@ -277,7 +279,7 @@ class TLSplitter:
         idx_target = np.where(domain == self.target_domain)[0]
         y_target = y[idx_target]
         
-        if self.modeling:
+        if self.modeling or (isinstance(self.cv, float) and self.cv == 1):
             # If modeling, we use all source and target domain data as the training 
             # set and the entire target domain as the test set
             train_idx = np.concatenate([idx_source, idx_target])

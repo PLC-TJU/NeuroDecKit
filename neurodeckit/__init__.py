@@ -6,6 +6,7 @@ from . import ensemble_learning
 from . import machine_learning
 from . import pre_processing
 from . import transfer_learning
+from . import evaluation
 from . import utils
 
 from .loaddata import Dataset_Left_Right_MI, Dataset_MI
@@ -15,6 +16,15 @@ from .machine_learning.ml_classifier import ML_Classifier
 from .ensemble_learning.el_classifier import EL_Classifier
 from .transfer_learning.tl_classifier import TL_Classifier
 from .deep_learning.dl_classifier import DL_Classifier
+from .evaluation import (
+    WithinSessionEvaluator,
+    WithinSubjectEvaluator,
+    CrossSessionEvaluator,
+    CrossSubjectEvaluator,
+    CrossBlockEvaluator,
+)
+
+from ._version import __version__
 
 __all__ = [
     '__version__',
@@ -25,6 +35,7 @@ __all__ = [
     'machine_learning',
     'pre_processing',
     'transfer_learning',
+    'evaluation',
     'utils',
     'Dataset_Left_Right_MI',
     'Dataset_MI',
@@ -34,5 +45,10 @@ __all__ = [
     'ML_Classifier',
     'EL_Classifier',
     'TL_Classifier',
-    'DL_Classifier'
+    'DL_Classifier',
+    'WithinSessionEvaluator',
+    'WithinSubjectEvaluator',
+    'CrossSessionEvaluator',
+    'CrossSubjectEvaluator',
+    'CrossBlockEvaluator',
 ]

@@ -21,6 +21,7 @@ class TL_Classifier(BaseEstimator, ClassifierMixin):
         # 初始化参数        
         self.model = None
         self._tl_flag = True
+        self.classes_ = None
         
         self.dpa_method = dpa_method  # 域适应方法
         self.fee_method = fee_method  # 特征提取方法
@@ -370,7 +371,7 @@ class TL_Classifier(BaseEstimator, ClassifierMixin):
                                                          SVC(C=1, kernel='linear')), memory=self.memory), n_estimators=n_estimators, algorithm=algorithm)),
             #33-
             'MDWM':               ('mdwm',               MDWM(domain_tradeoff=0.5, target_domain=self.target_domain)),# 本身包括迁移学习框架，仅适用于迁移学习
-            'MEKT':               ('mekt',           MEKT(target_domain=self.target_domain)), # 本身包括迁移学习框架，仅适用于迁移学习
+            'MEKT':               ('mekt',               MEKT(target_domain=self.target_domain)), # 本身包括迁移学习框架，仅适用于迁移学习
             'MEKT-LDA':           ('mekt-lda',           MEKT(target_domain=self.target_domain, estimator=LDA(solver='eigen', shrinkage='auto'))), 
             'MEKT-LR':            ('mekt-lr',            MEKT(target_domain=self.target_domain, estimator=LR(random_state=self.random_state))),
             'MEKT-SVM':           ('mekt-svm',           MEKT(target_domain=self.target_domain, estimator=SVC(C=1, kernel='linear'))),
@@ -490,7 +491,7 @@ class TL_Classifier(BaseEstimator, ClassifierMixin):
             'NONE':   [],
             'TRCA':   ('trca',   TRCA(n_components=6)),
             'DCPM':   ('dcpm',   DCPM(n_components=6)),
-            'SBLEST': ('sblest', OneVsRestClassifier(SBLEST(K=2, tau=1, Epoch=2000, epoch_print=0))),
+            'SBLEST': ('sblest', OneVsRestClassifier(SBLEST(K=2, tau=1, epoch=2000, epoch_print=0))),
         }
         if callable(endtoend):
             pass

@@ -200,15 +200,16 @@ class Algorithms(BaseEstimator, ClassifierMixin):
             **self.kwargs
             )
         
-    def fit(self, X, y):
+    def fit(self, X, y_enc):
         """
         This function trains the algorithm on the given data.
-        :param X: The input data.
-        :param y: The target data.
-        :return: The trained algorithm.
+        X: The input data.
+        y_enc: encoded labels of the input data.
+        return: The trained algorithm.
         """
         X = np.reshape(X, (-1, *X.shape[-2:]))
-        X_dec, _, domains = decode_domains(X, y)
+        X_dec, y, domains = decode_domains(X, y_enc)
+        self.classes_ = np.unique(y)
         w = np.zeros(len(X_dec))
         w[domains == self.target_domain] = 1
         for name, step in self.PreProcess.process.steps:
@@ -230,11 +231,11 @@ class Algorithms(BaseEstimator, ClassifierMixin):
                 tl_mode=self.tl_mode,
                 **self.kwargs
                 )
-            self.Model = self.TLClassifierModel.fit(X, y)
+            self.Model = self.TLClassifierModel.fit(X, y_enc)
         else:
-            X = self.PreProcess.fit_transform(X, y)
-            X, y = check_sample_dims(X, y)  
-            self.Model = self.TLClassifierModel.fit(X, y)
+            X = self.PreProcess.fit_transform(X, y_enc)
+            X, y_enc = check_sample_dims(X, y_enc)  
+            self.Model = self.TLClassifierModel.fit(X, y_enc)
         return self
           
     def predict(self, X):

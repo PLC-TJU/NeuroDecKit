@@ -25,7 +25,7 @@ class Pre_Processing(BaseEstimator, TransformerMixin):
         process (Pipeline): the pre-processing pipeline.
         
         # downsampling parameters
-        fs_new (int or None): the new sampling frequency after downsampling.
+        fs_new (int): the new sampling frequency after downsampling.
         fs_old (int or None): the original sampling frequency before downsampling.
         
         # channel selection parameters
@@ -71,7 +71,7 @@ class Pre_Processing(BaseEstimator, TransformerMixin):
     """
     
     def __init__(self, 
-                 fs_new=None, fs_old=None,          # downsampling
+                 fs_new, fs_old=None,               # downsampling
                  channels=None,                     # channel selection
                  start_time=None, end_time=None,    # time window selection
                  lowcut=None, highcut=None, order=5, filter_type='butter', # bandpass filter    
@@ -116,7 +116,7 @@ class Pre_Processing(BaseEstimator, TransformerMixin):
         ## initialize the pre-processing steps
         
         # downsampling
-        if self.fs_new is not None and self.fs_old is not None:
+        if self.fs_new is not None and self.fs_old is not None and self.fs_new!= self.fs_old:
             self.steps.append(('downsample', Downsample(fs_new=self.fs_new, fs_old=self.fs_old)))
         # channel selection
         if self.channels is not None:

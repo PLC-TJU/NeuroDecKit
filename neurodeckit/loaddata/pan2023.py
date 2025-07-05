@@ -74,7 +74,7 @@ class Pan2023(BaseDataset):
         =========  =======  =======  ==========  =================  ============  ===============  ===========
         Name         #Subj    #Chan    #Classes    #Trials / class  Trials len    Sampling rate      #Sessions
         =========  =======  =======  ==========  =================  ============  ===============  ===========
-        Pan2023        14       28           2                 120  4s            250Hz                      2
+        Pan2025        14       28           2                 120            4s            250Hz            2
         =========  =======  =======  ==========  =================  ============  ===============  ===========
 
     Dataset from the article *Riemannian geometric and ensemble learning for
@@ -185,7 +185,7 @@ class Pan2023(BaseDataset):
             raw_data = raw_data - np.mean(raw_data, axis=2, keepdims=True)
             raw_events = np.zeros((raw_data.shape[0], 1, raw_data.shape[2]))
             raw_events[:, 0, 0] = event_ids
-            data = np.concatenate([1e-6 * raw_data, raw_events], axis=1)
+            data = np.concatenate([raw_data * 1e-6, raw_events], axis=1) #uV to V
             # add buffer in between trials
             log.warning(
                 "Trial data de-meaned and concatenated with a buffer to create " "cont data"

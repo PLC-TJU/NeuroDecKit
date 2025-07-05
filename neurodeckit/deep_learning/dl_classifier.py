@@ -129,11 +129,11 @@ def check_nn(est):
         'ShallowFBCSPNet': ShallowFBCSPNet,
         'DeepNet': DeepNet,
         'Deep4Net': Deep4Net,  
-        'FBCNet': FBCNet,
+        'FBCNet': FBCNet, #oFBCNet与FBCNet的区别在于当rsf_method非none时，oFBCNet使用的是原始的FBCNet，否则使用对各个子频带的数据进行额外的rsf空间滤波
         'oFBCNet': FBCNet,
-        'Tensor_CSPNet': Tensor_CSPNet,
+        'Tensor_CSPNet': Tensor_CSPNet, # 同理
         'oTensor_CSPNet': Tensor_CSPNet,
-        'Graph_CSPNet': Graph_CSPNet,
+        'Graph_CSPNet': Graph_CSPNet, # 同理
         'oGraph_CSPNet': Graph_CSPNet,
         'LMDANet': LMDANet,
     }
@@ -230,6 +230,15 @@ class DL_Classifier(BaseEstimator, ClassifierMixin, TransformerMixin):
         else:
             raise ValueError("Model is not trained yet. Please call 'fit' with appropriate arguments before calling 'predict'.")
         return predictions
+    
+    def predict_proba(self, X):
+        # 确保模型已经训练
+        if hasattr(self, 'Model'):
+            # 使用模型进行预测
+            y_proba = self.Model.predict_proba(X.astype(self.dtype).copy())
+            return y_proba
+        else:
+            raise ValueError("Model is not trained yet. Please call 'fit' with appropriate arguments before calling 'predict_proba'.")
 
     def score(self, X, y):
         # 确保模型已经训练

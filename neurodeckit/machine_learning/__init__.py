@@ -19,7 +19,7 @@ from .csp import FBCSP
 
 from .sblest import SBLEST
 from .sblest import sblest_kernel
-from ctssp import CTSSP, TRCTSSP, SBL_CTSSP
+from .ctssp import SBL_CTSSP as CTSSP
 
 from .feature_select import MutualInformationSelector as MIBIF
 from .feature_select import LassoFeatureSelector as LassoSelector
@@ -53,8 +53,6 @@ __all__ = [
     'SBLEST',
     'sblest_kernel',
     'CTSSP',
-    'TRCTSSP',
-    'SBL_CTSSP',
     'MIBIF',
     'LassoSelector',
     'recursive_reference_center',

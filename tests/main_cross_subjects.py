@@ -95,7 +95,7 @@ def save_result(paraset, result, filename):
         'domain_weight': paraset['domain_weight'],
         }
     try:
-        with gpu_lock:
+        with lock:
             with open(filename, 'a') as f:
                 json.dump(result_dict, f)
                 f.write('\n')  # 换行，以便于读取时分割
@@ -149,9 +149,9 @@ if __name__ == '__main__':
     if not os.path.exists(folder):
         os.makedirs(folder)
     
-    # 定义GPU共享锁和值   
+    # 定义多进程锁
     manager = mp.Manager()
-    gpu_lock = manager.Lock() 
+    lock = manager.Lock() 
     
     # 设置最大并行进程数
     cpu_jobs = 60
@@ -199,7 +199,7 @@ if __name__ == '__main__':
         
         neighbors_str = [f'S{i}' for i in neighbors]
         
-        X, y_enc, domain =encode_datasets(datas_new, labels_new, domain_tags=neighbors_str)
+        X, y_enc, domain = encode_datasets(datas_new, labels_new, domain_tags=neighbors_str)
         print(f"data shape: {X.shape}, label shape: {y_enc.shape}")
         print(f"All Domain: {domain}")
 

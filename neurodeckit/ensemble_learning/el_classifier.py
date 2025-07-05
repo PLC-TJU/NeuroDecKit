@@ -14,8 +14,6 @@ from sklearn.base import BaseEstimator, ClassifierMixin
 from sklearn.model_selection import RepeatedStratifiedKFold
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis as LDA
 from sklearn.linear_model import LogisticRegression as LR
-# from sklearn.ensemble import StackingClassifier
-# from sklearn.model_selection import cross_val_score
 
 from joblib import Parallel, delayed
 from joblib import Memory
@@ -27,12 +25,10 @@ from ..transfer_learning import decode_domains
 
 class EL_Classifier(BaseEstimator, ClassifierMixin):
     def __init__(self,
-                 fs_new=250,
+                 fs_old=None,
+                 fs_new=None,
                  timesets=[[0, 4],[0, 2],[1, 3],[2, 4],[0, 3], [1, 4]],
-                # timesets=[[0, 4],[0, 2],[0.5, 2.5],[1, 3],[1.5, 3.5], [2, 4]],
-                 freqsets=[[8, 30],[8, 13],[13, 18],[18, 26],[26, 30]],
-                #  timesets=[[0, 4],[0, 2]],
-                #  freqsets=[[8, 30],[8, 13]],
+                 freqsets=[[8, 30],[8, 13],[13, 18],[18, 26],[23, 30]],
                  chansets=[None],
                  parasets=None,
                  meta_classifier=LDA(solver="lsqr", shrinkage="auto"),
@@ -43,6 +39,7 @@ class EL_Classifier(BaseEstimator, ClassifierMixin):
                  **kwargs,
                  ):
         
+        self.fs_old = fs_old
         self.fs_new = fs_new
         self.timesets = timesets
         self.freqsets = freqsets
@@ -67,7 +64,7 @@ class EL_Classifier(BaseEstimator, ClassifierMixin):
             self.parasets = list(itertools.product(self.chansets, self.timesets, self.freqsets))
             
         for channels, time_window, freq_window in self.parasets:
-            pre_processor = Pre_Processing(fs_old=None,
+            pre_processor = Pre_Processing(fs_old=self.fs_old,
                                            fs_new=self.fs_new, 
                                            channels=channels, 
                                            start_time=time_window[0], 
@@ -77,12 +74,7 @@ class EL_Classifier(BaseEstimator, ClassifierMixin):
                                            **self.kwargs,
                                            )
             
-            Model = TL_Classifier(#dpa_method=self.dpa_method, 
-                                #   fee_method=self.fee_method, 
-                                #   fes_method=self.fes_method,
-                                #   clf_method=self.clf_method,
-                                #   end_method=self.end_method, 
-                                #   ete_method=self.ete_method, 
+            Model = TL_Classifier(
                                   pre_est=pre_processor.process, 
                                   target_domain=self.target_domain, 
                                   tl_mode='TL',
@@ -273,7 +265,7 @@ if __name__ == '__main__':
     
     dataset_name = 'Pan2023'
     fs = 250
-    datapath = r'E:\工作进展\小论文2023会议\数据处理python\datasets'
+    datapath = r'E:\datasets'
     # dataset = Dataset_MI(dataset_name,fs=fs,fmin=8,fmax=30,tmin=0,tmax=4,path=datapath)
     dataset = Dataset_Left_Right_MI(dataset_name,fs=fs,fmin=1,fmax=40,tmin=0,tmax=4,path=datapath)
     subjects = dataset.subject_list[:3]
