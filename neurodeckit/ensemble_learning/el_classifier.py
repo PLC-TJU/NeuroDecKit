@@ -53,13 +53,6 @@ class EL_Classifier(BaseEstimator, ClassifierMixin):
         self.kwargs = kwargs
         self.modelsets = []
         
-        self.dpa_method = kwargs.get('dpa_method', 'RA')
-        self.fee_method = kwargs.get('fee_method', 'MDM')
-        self.fes_method = kwargs.get('fes_method', None)
-        self.clf_method = kwargs.get('clf_method', None)
-        self.end_method = kwargs.get('end_method', None)
-        self.ete_method = kwargs.get('ete_method', None)
-        
         if self.parasets is None:
             self.parasets = list(itertools.product(self.chansets, self.timesets, self.freqsets))
             

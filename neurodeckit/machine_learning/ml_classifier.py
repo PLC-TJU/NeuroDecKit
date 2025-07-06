@@ -35,6 +35,7 @@ class ML_Classifier(BaseEstimator, ClassifierMixin):
         
         # 以下参数均可通过kwargs传入，若未传入则使用默认值
         self.kwargs = kwargs
+        self.memory = kwargs.get('memory', None)
         self.fs = kwargs.get('fs', None)
         self.cov_estimator = kwargs.get('cov_estimator', 'cov') # {'scm', 'cov', 'lwf'}
         self.shr_value = kwargs.get('shr_value', None)
@@ -43,7 +44,7 @@ class ML_Classifier(BaseEstimator, ClassifierMixin):
         self.rsf_dim = kwargs.get('rsf_dim', None)
         self.freqband = kwargs.get('freqband', [5, 32])
         self.filterbank = kwargs.get('filterbank', generate_intervals(4, 4, (4, 40)))
-        self.n_components_fb = kwargs.get('n_components_fb', 24) 
+        self.n_components_fb = kwargs.get('n_components_fb', 10) 
         self.device = kwargs.get('device', 'cuda')  # SBLEST only
         self.svm_kernel = kwargs.get('svm_kernel', ['linear', 'rbf']) #  {"svm_kernel": ["linear", "rbf"]}
         self.svm_C = kwargs.get('svm_C', [0.1, 1, 10]) #  {"svm_C": np.logspace(-2, 2, 10)}
@@ -59,7 +60,7 @@ class ML_Classifier(BaseEstimator, ClassifierMixin):
         if self.model_name in ['CSP-LDA','CSP']:
             self.clf = make_pipeline(Cov(estimator=self.cov_estimator), 
                                      CSP(nfilter=self.n_components, metric='euclid'), 
-                                     GridSearchCV(LDA(), self.param_lda, cv=3, n_jobs=self.n_jobs)
+                                     LDA(solver='lsqr', shrinkage='auto'),
                                      )
         elif self.model_name == 'CSP-SVM':
             self.clf = make_pipeline(Cov(estimator=self.cov_estimator), 
@@ -89,27 +90,23 @@ class ML_Classifier(BaseEstimator, ClassifierMixin):
         elif self.model_name in ['oFBCSP','oFBCSP-LDA','FBCSP','FBCSP-LDA']:
             if self.fs is None:
                 ValueError('fs is not specified')
-            filterbanks = generate_filterbank(self.filterbank,
-                                             adjust_intervals(self.filterbank),
-                                             srate=self.fs,
-                                             order=4)
-            self.clf = make_pipeline(FBCSP(n_components=self.n_components,
-                                           n_mutualinfo_components=self.n_components_fb,
-                                           filterbank=filterbanks), 
-                                     GridSearchCV(LDA(), self.param_lda, cv=3, n_jobs=self.n_jobs)
-                                     )
+            model = make_pipeline(
+                FBCSP(fs=self.fs, banks=self.filterbank, n_components_select=self.n_components_fb),
+                LDA(solver='lsqr', shrinkage='auto'),
+                )
+            # nfilter = [2, 4, 6, 8, 10, 12]
+            # self.clf = GridSearchCV(model, param_grid={'fbcsp__nfilter': nfilter}, cv=5, scoring='accuracy')
+            self.clf = model
         elif self.model_name in ['oFBCSP-SVM','FBCSP-SVM']:
             if self.fs is None:
                 ValueError('fs is not specified')
-            filterbanks = generate_filterbank(self.filterbank,
-                                             adjust_intervals(self.filterbank),
-                                             srate=self.fs,
-                                             order=4)
-            self.clf = make_pipeline(FBCSP(n_components=self.n_components,
-                                           n_mutualinfo_components=self.n_components_fb,
-                                           filterbank=filterbanks), 
-                                     GridSearchCV(SVC(), self.param_svm, cv=3, n_jobs=self.n_jobs)
-                                     )
+            model = make_pipeline(
+                FBCSP(fs=self.fs, banks=self.filterbank, n_components_select=self.n_components_fb),
+                SVC(kernel='linear', C=1),
+                )
+            # nfilter = [2, 4, 6, 8, 10, 12]
+            # self.clf = GridSearchCV(model, param_grid={'fbcsp__nfilter': nfilter}, cv=5, scoring='accuracy')
+            self.clf = model
         elif self.model_name in ['FB-CSP-LDA','FB-CSP','RSF-FB-CSP-LDA','RSF-FB-CSP']:
             # some unknow bugs in these models, so we use the FBCSP-LDA model instead
             if self.fs is None:
@@ -143,10 +140,10 @@ class ML_Classifier(BaseEstimator, ClassifierMixin):
         elif self.model_name == 'FgMDM':
                 self.clf = make_pipeline(Cov(estimator=self.cov_estimator), 
                                         FgMDM(n_jobs=self.n_jobs))
-        elif self.model_name == 'TS-LDA':
+        elif self.model_name in ['TS-LDA', 'TSM']:
             self.clf = make_pipeline(Cov(estimator=self.cov_estimator), 
                                      TS(),
-                                     GridSearchCV(LDA(), self.param_lda, cv=3, n_jobs=self.n_jobs)
+                                     LDA(solver='lsqr', shrinkage='auto',)
                                      )
         elif self.model_name == 'TS-SVM':
             self.clf = make_pipeline(Cov(estimator=self.cov_estimator), 
@@ -170,7 +167,7 @@ class ML_Classifier(BaseEstimator, ClassifierMixin):
                                      RKSVM(metric='riemann', kernel_fct=self.kernel_fct)
                                      )
         elif self.model_name == 'TRCA':
-            self.clf = TRCA(n_components=self.n_components)
+            self.clf = make_pipeline(TRCA(n_components=self.n_components))
         elif self.model_name == 'FBTRCA':
             
             if self.fs is None:
@@ -179,9 +176,9 @@ class ML_Classifier(BaseEstimator, ClassifierMixin):
                                              adjust_intervals(self.filterbank),
                                              srate=self.fs,
                                              order=4)
-            self.clf = FBTRCA(n_components=self.n_components, filterbank=filterbanks)
+            self.clf = make_pipeline(FBTRCA(n_components=self.n_components, filterbank=filterbanks))
         elif self.model_name == 'DSP':
-            self.clf = DSP(n_components=self.n_components)
+            self.clf = make_pipeline(DSP(n_components=self.n_components))
         elif self.model_name == 'FBDSP':
             if self.fs is None:
                 ValueError('fs is not specified')
@@ -189,13 +186,14 @@ class ML_Classifier(BaseEstimator, ClassifierMixin):
                                              adjust_intervals(self.filterbank),
                                              srate=self.fs,
                                              order=4)            
-            self.clf = FBDSP(n_components=self.n_components, filterbank=filterbanks)
+            self.clf = make_pipeline(FBDSP(n_components=self.n_components, filterbank=filterbanks))
         elif self.model_name == 'DCPM':
-            self.clf = DCPM(n_components=self.n_components)
+            self.clf = make_pipeline(DCPM(n_components=self.n_components))
         elif self.model_name in ['SBLEST']:
-            self.clf = SBLEST(K=2, tau=1, device=self.device) #使用默认参数
+            self.clf = make_pipeline(SBLEST(K=2, tau=1, device=self.device)) #使用默认参数
         else:
             raise ValueError('Invalid method')
+        self.clf.memory = self.memory
 
     def fit(self, X, y):
 

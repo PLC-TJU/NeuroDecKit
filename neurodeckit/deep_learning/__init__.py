@@ -13,6 +13,8 @@ from .fbcnet import FBCNet
 
 from .cspnet import Tensor_CSPNet, Graph_CSPNet
 from .lmda_net import LMDANet
+from .hcann import HCANN
+
 # from .dl_classifier import DL_Classifier
 
 __all__ = [ 
@@ -28,5 +30,6 @@ __all__ = [
     'Tensor_CSPNet',
     'Graph_CSPNet',
     'LMDANet',
+    'HCANN',
     'DL_Classifier'
 ]
