@@ -8,6 +8,7 @@ License: All rights reserved
 import numpy as np
 from scipy.linalg import eigh
 from scipy.linalg import block_diag
+from scipy.special import expit
 from sklearn.base import BaseEstimator, TransformerMixin, ClassifierMixin
 from pyriemann.utils.covariance import covariances
 from pyriemann.utils.mean import mean_covariance
@@ -650,6 +651,25 @@ class SBL_CTSSP(BaseEstimator, ClassifierMixin):
         vec_W = self.W.T.flatten()
         predict_Y = R @ vec_W
         return np.where(predict_Y > 0, self.classes_[0], self.classes_[1])
+    
+    def predict_proba(self, X):
+        if self.W is None:
+            raise ValueError("Model is not trained yet. Please call 'fit' with \
+                             appropriate arguments before calling 'predict_proba'.")
+        Cov, _ = enhanced_cov(
+            X, 
+            self.t_win, 
+            self.tau, 
+            self.Mrct_, 
+            estimator=self.cov_method, 
+            metric=self.metric, 
+            )
+        R = self._get_vector(Cov)
+        vec_W = self.W.T.flatten()
+        predict_Y = R @ vec_W
+        p_class0 = expit(predict_Y)
+        p_class1 = 1 - p_class0
+        return np.vstack((p_class0, p_class1)).T
     
 
 

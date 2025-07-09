@@ -1,3 +1,12 @@
+"""
+Evaluation module for brain signal classification.
+
+Author: LC.Pan <panlincong@tju.edu.cn.com>
+Date: 2025/3/25
+License: All rights reserved
+
+"""
+
 import numpy as np
 import pandas as pd
 import time
@@ -160,6 +169,11 @@ class ClassificationMetrics:
                 results['roc_curve'] = None
                 print("警告: 无法计算ROC曲线，模型不支持概率预测")
         
+        # 处理不支持的指标
+        for metric in metrics:
+            if metric not in results:
+                raise ValueError(f"不支持的指标: {metric}")
+        
         # 返回请求的指标
         return {k: v for k, v in results.items() if k in metrics}
 
@@ -181,20 +195,31 @@ class BaseEvaluator(ABC):
             样本信息 [subject, session, block/run]
         cv : float | 交叉验证器对象, default=None
             目标域数据划分方式
-        metrics : List[str], optional
-            需要计算的额外指标列表，可选值包括:
+        metrics : str | List[str], optional
+            需要计算的指标列表或单个指标名称
             'accuracy', 'precision', 'recall', 'f1', 'kappa', 'auc', 'roc_curve'
+            还可以是'all'表示所有指标，
             默认只计算'accuracy'
         """
         self.cv = cv
-        self.metrics = metrics
-
-        # 验证输入数据
-        self._validate_data(info)
         
-        # 生成域标签
-        domain_tags = self._generate_domain_tags(info)
-        self.domain_tags = domain_tags  # 存储域标签
+        if metrics == 'all':
+            self.metrics = ['accuracy', 'precision', 'recall', 
+                            'f1', 'kappa', 'auc', 'roc_curve']
+        elif isinstance(metrics, str):
+            self.metrics = [metrics]
+        else:
+            self.metrics = metrics
+
+        if info is not None:
+            # 验证输入数据
+            self._validate_data(info)
+            
+            # 生成域标签
+            domain_tags = self._generate_domain_tags(info)
+            self.domain_tags = domain_tags  # 存储域标签
+        else:
+            self.domain_tags = None
     
     @abstractmethod
     def _validate_data(self, info: pd.DataFrame) -> None:
@@ -273,24 +298,33 @@ class BaseEvaluator(ABC):
         返回:
         results : 分类结果字典，包含详细性能指标
         """
+        
+        # 检查域标签是否可用
+        if self.domain_tags is None:
+            raise RuntimeError("未初始化域标签，请确保在初始化时提供了info参数")
 
         # 验证目标域
         if target_domain is None or (exclude_domains is not None and target_domain in exclude_domains):
             raise ValueError("目标域不能为None且在exclude_domains中")
-        self._validate_target_domain(target_domain, self.domain_tags)
         
-        # 创建扩展标签
-        y_extended = np.array([f"{d}/{l}" for d, l in zip(self.domain_tags, label)])
+        domain_tags = self.domain_tags.copy()
+        self._validate_target_domain(target_domain, domain_tags)
         
         # 排除域样本和标签
         if exclude_domains:
             # 创建排除掩码
-            exclude_mask = np.isin(self.domain_tags, exclude_domains, invert=True)
+            exclude_mask = np.isin(domain_tags, exclude_domains, invert=True)
             # 过滤数据和标签
             data = data[exclude_mask]
             label = label[exclude_mask]
-            y_extended = y_extended[exclude_mask]
-            self.domain_tags = [d for d in self.domain_tags if d not in exclude_domains]
+            domain_tags = [d for i, d in enumerate(domain_tags) if exclude_mask[i]]
+        
+        # 验证目标域是否存在
+        if target_domain not in domain_tags:
+            raise ValueError(f"目标域 '{target_domain}' 在数据中不存在")
+        
+        # 创建扩展标签
+        y_extended = np.array([f"{d}/{l}" for d, l in zip(domain_tags, label)])
         
         # 创建TLSplitter
         splitter = TLSplitter(
@@ -351,11 +385,10 @@ class BaseEvaluator(ABC):
                 
                 # 计算性能指标
                 metrics_calculator = ClassificationMetrics(y_test_true, y_pred, y_prob)
-                if metrics is not None:
-                    extra_metrics = metrics_calculator.calculate(metrics)
-                    for metric in metrics:
-                        if metric in extra_metrics:
-                            fold_results[metric].append(extra_metrics[metric])
+                calculated_metrics = metrics_calculator.calculate(metrics)
+                for metric in metrics:
+                    if metric in calculated_metrics:
+                        fold_results[metric].append(calculated_metrics[metric])
                 
                 # 存储时间和样本信息
                 fold_results['train_time'].append(train_time)

@@ -249,6 +249,13 @@ class FlatChannelRemover(BaseEstimator, TransformerMixin):
     channels_ : ndarray, shape (n_good_channels)
         The indices of the non-flat channels.
     """
+    def __init__(self):
+        """Init."""
+        self.channels_ = None
+    
+    def __repr__(self):
+        """Repr."""
+        return f'{self.__class__.__name__}()'
 
     def fit(self, X, y=None, **fit_params):
         """Find flat channels.
@@ -282,6 +289,8 @@ class FlatChannelRemover(BaseEstimator, TransformerMixin):
         X : ndarray, shape (n_matrices, n_good_channels, n_times)
             Multi-channel time-series without flat channels.
         """
+        if self.channels_ is None:
+            raise ValueError('The FlatChannelRemover has not been fitted.')
         return X[:, self.channels_, :]
 
     def fit_transform(self, X, y=None, **fit_params):

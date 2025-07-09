@@ -223,20 +223,18 @@ class TLSplitter:
     ----------
     target_domain : str
         Domain considered as target.
-    cv : float | BaseCrossValidator | BaseShuffleSplit, default=None
-        An instance of a cross validation iterator from sklearn.
-        if float (0 <= cv <= 1), it is the fraction of the target domain data to use as the training set.
-        if 0, it is equivalent to no_calibration=True.
-        if 1, it is equivalent to modeling=True.
-        if BaseCrossValidator or BaseShuffleSplit, it is used as the cross-validation iterator.
+    cv : float | BaseCrossValidator | BaseShuffleSplit | list[float, float], default=None
+        Determines the cross-validation splitting strategy:
+        - float (0 <= cv <= 1): fraction of target domain for training
+        - list[float, float]: [train_ratio, test_ratio] for target domain
+        - CrossValidator: sklearn cross-validation iterator
+        Special cases:
+        - cv=0: equivalent to no_calibration=True
+        - cv=1: equivalent to modeling=True
     no_calibration : bool, default=False
-        Whether to use the entire target domain data as the test set.
-        if True, the entire target domain is used as the test set (i.e. 
-        calibration-free), otherwise a random split is done on the target 
-        domain data.
+        Use entire target domain as test set (calibration-free).
     modeling : bool, default=False  
-        if True, the whole source and target domain data is used for training,
-        and the target domain data is used as the test set.
+        Use entire source and target for training, target for testing.
 
     References
     ----------
@@ -279,38 +277,66 @@ class TLSplitter:
         idx_target = np.where(domain == self.target_domain)[0]
         y_target = y[idx_target]
         
-        if self.modeling or (isinstance(self.cv, float) and self.cv == 1):
-            # If modeling, we use all source and target domain data as the training 
-            # set and the entire target domain as the test set
+        if self.modeling or (isinstance(self.cv, int) and self.cv == 1):
+            # Use all source and target for training, target for testing
             train_idx = np.concatenate([idx_source, idx_target])
             test_idx = idx_target
             yield train_idx, test_idx
             return
 
-        if self.no_calibration or self.cv == 0:
-            # Use all target domain samples as the test set
+        if self.no_calibration or (isinstance(self.cv, int) and self.cv == 0):
+            # Use source for training, entire target for testing
             train_idx = idx_source
             test_idx = idx_target
-            self.no_calibration = True
-            self.cv = 0
             yield train_idx, test_idx
             return
 
         if isinstance(self.cv, float) and 0 < self.cv < 1:
-            # the value of cv is a fraction of the target domain data to use as the training set
-            train_idx = np.concatenate([idx_source, idx_target[:int(self.cv*len(idx_target))]])
-            test_idx = idx_target[int(self.cv*len(idx_target)):]
+            # Fraction of target domain for training
+            train_target_size = int(self.cv * len(idx_target))
+            train_idx = np.concatenate([idx_source, idx_target[:train_target_size]])
+            test_idx = idx_target[train_target_size:]
             yield train_idx, test_idx
             return
 
-        else:
-            # Index of training-split for the target data points
+        if isinstance(self.cv, (list, tuple)) and len(self.cv) == 2:
+            # Handle binary list [train_ratio, test_ratio]
+            train_ratio, test_ratio = self.cv
+             # Validate ratios
+            if train_ratio < 0 or test_ratio < 0:
+                raise ValueError("Ratios in cv list must be non-negative")
+            if train_ratio >= 1 or test_ratio >= 1:
+                raise ValueError("Ratios in cv list must be less than 1")
+            if train_ratio + test_ratio > 1:
+                test_ratio = 1 - train_ratio
+                Warning(f"Test ratio is set to {test_ratio} to avoid overfitting")
+                
+            n_target = len(idx_target)
+            train_target_size = int(train_ratio * n_target)
+            test_target_size = int(test_ratio * n_target)
+            
+            if train_target_size >= n_target or test_target_size == 0: # avoid overfitting
+                train_target_size = n_target - 1
+                test_target_size = 1
+                Warning(f"Test ratio is set to {test_target_size/n_target} to avoid overfitting")
+                        
+            # Construct indices
+            train_idx = np.concatenate([idx_source, idx_target[:train_target_size]])
+            test_idx = idx_target[train_target_size:train_target_size + test_target_size]
+            yield train_idx, test_idx
+            return
+
+        # Handle sklearn cross-validator objects
+        if hasattr(self.cv, 'split'):
             ss_target = self.cv.split(idx_target, y_target, groups=groups)
             for train_sub_idx_target, test_sub_idx_target in ss_target:
                 train_idx = np.concatenate(
                     [idx_source, idx_target[train_sub_idx_target]])
                 test_idx = idx_target[test_sub_idx_target]
                 yield train_idx, test_idx
+            return
+
+        raise TypeError("Unsupported type for cv parameter")
 
     def get_n_splits(self, X=None, y=None):
         """Returns the number of splitting iterations in the cross-validator.
@@ -325,9 +351,14 @@ class TLSplitter:
         Returns
         -------
         n_splits : int
-            Returns the number of splitting iterations in the cross-validator.
+            The number of splitting iterations.
         """
-        if self.no_calibration or self.modeling:
+        if (self.no_calibration or 
+            self.modeling or    
+            (isinstance(self.cv, int) and self.cv == 0) or 
+            (isinstance(self.cv, int) and self.cv == 1) or  
+            isinstance(self.cv, float) or 
+            (isinstance(self.cv, (list, tuple)) and len(self.cv) == 2)):
             return 1
         else:
             return self.cv.get_n_splits(X, y)

@@ -7,6 +7,7 @@ date: 2024-03-11
 import torch
 import warnings
 import numpy as np
+from scipy.special import expit
 from torch import reshape, norm, zeros, eye, float64, mm, inverse, log, det
 from torch import linalg, diag, log
 from torch import zeros, float64, mm, DoubleTensor
@@ -311,4 +312,18 @@ class SBLEST(BaseEstimator, ClassifierMixin):
         predict_Y = R_test @ vec_W
         return -predict_Y
     
+    def predict_proba(self, X):
+        if self.W is None:
+            raise ValueError("Model is not trained yet. Please call 'fit' with \
+                             appropriate arguments before calling 'predict_proba'.")
+        R_test = self.transform(X)
+        vec_W = self.W.T.flatten()
+        predict_Y = R_test @ vec_W
+        prob_neg = expit(predict_Y)
+        prob_pos = 1 - prob_neg
+        return np.vstack((prob_neg, prob_pos)).T
+    
+    def score(self, X, Y):
+        Y_pred = self.predict(X)
+        return np.mean(Y_pred == Y)
     

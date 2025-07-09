@@ -194,14 +194,14 @@ class FBCSP(FilterBank):
         self.n_components_select=n_components_select
         
         self.banks=generate_intervals(4, 4, (4, 40)) if banks is None else banks
-        self.filterbanks = generate_filterbank(self.banks,
+        self.filterbank = generate_filterbank(self.banks,
                                           adjust_intervals(self.banks),
                                           srate=self.fs,
                                           order=4)
         
         super().__init__(
             CSP(n_components=self.nfilter),
-            filterbank=self.filterbanks,
+            filterbank=self.filterbank,
             )
     
     def __repr__(self):

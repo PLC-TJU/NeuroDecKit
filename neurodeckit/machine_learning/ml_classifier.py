@@ -22,39 +22,61 @@ from . import RiemannCSP as CSP
 from . import Covariances as Cov
 from . import Kernels as Ker
 from . import Shrinkage as Shr
-from . import (FB, FBCSP, FBTRCA, DSP, FBDSP, DCPM,
-               MDM, FgMDM, TS, TSclassifier, RKSVM, TRCA, SBLEST, TRCSP)
+from . import (FB, FBCSP, FBTRCA, DSP, FBDSP, DCPM, MDM, FgMDM, TS, 
+               TSclassifier, RKSVM, TRCA, SBLEST, TRCSP, CTSSP)
 from .base import generate_filterbank
 from ..utils import generate_intervals, adjust_intervals
 from ..deep_learning import Formatdata
 
 
 class ML_Classifier(BaseEstimator, ClassifierMixin): 
-    def __init__(self, model_name='CSP', **kwargs):
-        self.model_name = model_name
+    def __init__(self, 
+                 model_name='CSP', 
+                 *,
+                 memory=None,
+                 fs=None,
+                 cov_estimator='cov',
+                 shr_value=None,
+                 n_components=8,
+                 rsf_method=None,
+                 rsf_dim=None,
+                 freqband=[5, 32],
+                 filterbank=generate_intervals(4, 4, (4, 40)),
+                 n_components_fb=10,
+                 device='cuda',
+                 svm_kernel=['linear', 'rbf'],
+                 svm_C=np.logspace(-2, 2, 10),
+                 lda_shrinkage=['None', 'auto'],
+                 lda_solver=['eigen', 'lsqr'],
+                 kernel_fct=None,
+                 n_jobs=None,
+                 **kwargs
+                 ):
         
-        # 以下参数均可通过kwargs传入，若未传入则使用默认值
+        self.model_name = model_name
+        self.memory = memory
+        self.fs = fs
+        self.cov_estimator = cov_estimator # {'scm', 'cov', 'lwf'} 
+        self.shr_value = shr_value
+        self.n_components = n_components
+        self.rsf_method = rsf_method
+        self.rsf_dim = rsf_dim
+        self.freqband = freqband
+        self.filterbank = filterbank
+        self.n_components_fb = n_components_fb 
+        self.device = device  # SBLEST only
+        self.svm_kernel = svm_kernel #  {"svm_kernel": ["linear", "rbf"]}
+        self.svm_C = svm_C #  {"svm_C": np.logspace(-2, 2, 10)}
+        self.lda_shrinkage = lda_shrinkage #  {"lda_shrinkage": ['None', 'auto']}
+        self.lda_solver = lda_solver #  {"lda_solver": ['eigen', 'lsqr']}
+        self.kernel_fct = kernel_fct #  {"kernel_fct": [None, 'precomputed']}
+        self.n_jobs = n_jobs
         self.kwargs = kwargs
-        self.memory = kwargs.get('memory', None)
-        self.fs = kwargs.get('fs', None)
-        self.cov_estimator = kwargs.get('cov_estimator', 'cov') # {'scm', 'cov', 'lwf'}
-        self.shr_value = kwargs.get('shr_value', None)
-        self.n_components = kwargs.get('n_components', 8)
-        self.rsf_method = kwargs.get('rsf_method', None) 
-        self.rsf_dim = kwargs.get('rsf_dim', None)
-        self.freqband = kwargs.get('freqband', [5, 32])
-        self.filterbank = kwargs.get('filterbank', generate_intervals(4, 4, (4, 40)))
-        self.n_components_fb = kwargs.get('n_components_fb', 10) 
-        self.device = kwargs.get('device', 'cuda')  # SBLEST only
-        self.svm_kernel = kwargs.get('svm_kernel', ['linear', 'rbf']) #  {"svm_kernel": ["linear", "rbf"]}
-        self.svm_C = kwargs.get('svm_C', [0.1, 1, 10]) #  {"svm_C": np.logspace(-2, 2, 10)}
-        self.lda_shrinkage = kwargs.get('lda_shrinkage', ['None', 'auto']) #  {"lda_shrinkage": ['None', 'auto']}
-        self.lda_solver = kwargs.get('lda_solver', ['eigen','lsqr']) #  {"lda_solver": ['eigen', 'lsqr']}
-        self.kernel_fct = kwargs.get('kernel_fct', None) #  {"kernel_fct": [None, 'precomputed']}
-        self.n_jobs = kwargs.get('n_jobs', None)
         
         self.param_svm = {"kernel": self.svm_kernel, "C": self.svm_C}
         self.param_lda = {"shrinkage": self.lda_shrinkage, "solver": self.lda_solver}
+        self.clf = None
+        self.classes_ = None
         
         # 传统机器学习分类器列表
         if self.model_name in ['CSP-LDA','CSP']:
@@ -65,7 +87,7 @@ class ML_Classifier(BaseEstimator, ClassifierMixin):
         elif self.model_name == 'CSP-SVM':
             self.clf = make_pipeline(Cov(estimator=self.cov_estimator), 
                                      CSP(nfilter=self.n_components, metric='euclid'), 
-                                     GridSearchCV(SVC(), self.param_svm, cv=3, n_jobs=self.n_jobs)
+                                     GridSearchCV(SVC(probability=True), self.param_svm, cv=3, n_jobs=self.n_jobs)
                                      )
         elif self.model_name in ['TRCSP-LDA','TRCSP']:
             self.clf = make_pipeline(Cov(estimator=self.cov_estimator), 
@@ -75,7 +97,7 @@ class ML_Classifier(BaseEstimator, ClassifierMixin):
         elif self.model_name == 'TRCSP-SVM':
             self.clf = make_pipeline(Cov(estimator=self.cov_estimator), 
                                      TRCSP(nfilter=self.n_components, metric='riemann'), 
-                                     GridSearchCV(SVC(), self.param_svm, cv=3, n_jobs=self.n_jobs)
+                                     GridSearchCV(SVC(probability=True), self.param_svm, cv=3, n_jobs=self.n_jobs)
                                      )
         elif self.model_name in ['RiemannCSP-LDA','RiemannCSP']:
             self.clf = make_pipeline(Cov(estimator=self.cov_estimator), 
@@ -85,7 +107,7 @@ class ML_Classifier(BaseEstimator, ClassifierMixin):
         elif self.model_name == 'RiemannCSP-SVM':
             self.clf = make_pipeline(Cov(estimator=self.cov_estimator), 
                                      CSP(nfilter=self.n_components, metric='riemann'), 
-                                     GridSearchCV(SVC(), self.param_svm, cv=3, n_jobs=self.n_jobs)
+                                     GridSearchCV(SVC(probability=True), self.param_svm, cv=3, n_jobs=self.n_jobs)
                                      )
         elif self.model_name in ['oFBCSP','oFBCSP-LDA','FBCSP','FBCSP-LDA']:
             if self.fs is None:
@@ -102,7 +124,7 @@ class ML_Classifier(BaseEstimator, ClassifierMixin):
                 ValueError('fs is not specified')
             model = make_pipeline(
                 FBCSP(fs=self.fs, banks=self.filterbank, n_components_select=self.n_components_fb),
-                SVC(kernel='linear', C=1),
+                SVC(kernel='linear', C=1, probability=True),
                 )
             # nfilter = [2, 4, 6, 8, 10, 12]
             # self.clf = GridSearchCV(model, param_grid={'fbcsp__nfilter': nfilter}, cv=5, scoring='accuracy')
@@ -132,7 +154,7 @@ class ML_Classifier(BaseEstimator, ClassifierMixin):
                                  rsf_dim=self.rsf_dim)
             Basemodel = FB(make_pipeline(Cov(estimator=self.cov_estimator), CSP(nfilter=self.n_components)))
             Feaselect = SelectKBest(score_func=mutual_info_classif, k=self.n_components_fb)
-            OptSVM = GridSearchCV(SVC(), self.param_svm, cv=3, n_jobs=self.n_jobs)
+            OptSVM = GridSearchCV(SVC(probability=True), self.param_svm, cv=3, n_jobs=self.n_jobs)
             self.clf = make_pipeline(Process, Basemodel, Feaselect, OptSVM)
         elif self.model_name in ['MDM', 'MDRM']:
                 self.clf = make_pipeline(Cov(estimator=self.cov_estimator), 
@@ -148,7 +170,7 @@ class ML_Classifier(BaseEstimator, ClassifierMixin):
         elif self.model_name == 'TS-SVM':
             self.clf = make_pipeline(Cov(estimator=self.cov_estimator), 
                                      TS(),
-                                     GridSearchCV(SVC(), self.param_svm, cv=3, n_jobs=self.n_jobs)
+                                     GridSearchCV(SVC(probability=True), self.param_svm, cv=3, n_jobs=self.n_jobs)
                                      )
         elif self.model_name == 'TSLDA':
             self.clf = make_pipeline(Cov(estimator=self.cov_estimator), 
@@ -156,7 +178,7 @@ class ML_Classifier(BaseEstimator, ClassifierMixin):
                                      )
         elif self.model_name == 'TSSVM':
             self.clf = make_pipeline(Cov(estimator=self.cov_estimator), 
-                                     TSclassifier(clf=SVC(kernel='linear', C=1))
+                                     TSclassifier(clf=SVC(kernel='linear', C=1, probability=True))
                                      )
         elif self.model_name == 'TSGLM':
             self.clf = make_pipeline(Cov(estimator=self.cov_estimator), 
@@ -191,17 +213,26 @@ class ML_Classifier(BaseEstimator, ClassifierMixin):
             self.clf = make_pipeline(DCPM(n_components=self.n_components))
         elif self.model_name in ['SBLEST']:
             self.clf = make_pipeline(SBLEST(K=2, tau=1, device=self.device)) #使用默认参数
+            # self.clf = make_pipeline(CTSSP(tau=[0, 1], device=self.device)) #使用默认参数
+        elif self.model_name in ['CTSSP']:
+            self.clf = make_pipeline(CTSSP(t_win=None, tau=[0, 1], device=self.device)) #使用默认参数
         else:
             raise ValueError('Invalid method')
         self.clf.memory = self.memory
 
     def fit(self, X, y):
-
+        self.classes_ = np.unique(y)
         self.clf.fit(X.copy(), y.copy())
         return self
     
     def predict(self, X):
         return self.clf.predict(X.copy())
+    
+    def predict_proba(self, X):
+        return self.clf.predict_proba(X.copy())
+    
+    def score(self, X, y):
+        return self.clf.score(X.copy(), y.copy())
     
 
 if __name__ == '__main__':

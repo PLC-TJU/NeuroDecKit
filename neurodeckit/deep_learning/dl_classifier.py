@@ -153,10 +153,23 @@ def check_nn(est):
 
 
 class DL_Classifier(BaseEstimator, ClassifierMixin, TransformerMixin):
-    def __init__(self, model_name='EEGNet', n_classes=2, fs=128, batch_size=32, lr=1e-2, max_epochs=200, device='cpu', 
-                 freqband=None, dtype='float32', seed=42, patience=50, rsf_method='none', rsf_dim=4, 
-                 **kwargs):
-        self.kwargs = kwargs
+    def __init__(self, 
+                 model_name='EEGNet', 
+                 n_classes=2, 
+                 fs=128, 
+                 batch_size=32, 
+                 lr=1e-2, 
+                 max_epochs=200, 
+                 device='cpu', 
+                 freqband=None, 
+                 dtype='float32', 
+                 seed=42, 
+                 patience=50, 
+                 rsf_method='none', 
+                 rsf_dim=4, 
+                 **kwargs
+                 ):
+
         self.model_name = model_name
         self.n_classes = n_classes
         self.fs = fs
@@ -175,6 +188,8 @@ class DL_Classifier(BaseEstimator, ClassifierMixin, TransformerMixin):
         self.dtype = dtype # 默认使用float32, 也可以使用float64
         self.seed = seed
         self.patience = patience
+        self.kwargs = kwargs
+        
         self.net_params = {
             'batch_size': self.batch_size,
             'lr': self.lr,

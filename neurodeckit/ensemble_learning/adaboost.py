@@ -1,35 +1,7 @@
-from sklearn.ensemble import AdaBoostClassifier
-
-# import warnings
-# from abc import ABCMeta, abstractmethod
-# from numbers import Integral, Real
 
 import numpy as np
 from scipy.special import xlogy
-
-# from sklearn.base import (
-#     ClassifierMixin,
-#     RegressorMixin,
-#     _fit_context,
-#     is_classifier,
-#     is_regressor,
-# )
-# from sklearn.metrics import accuracy_score, r2_score
-# from sklearn.tree import DecisionTreeClassifier, DecisionTreeRegressor
-# from sklearn.utils import _safe_indexing, check_random_state
-# from sklearn.utils._param_validation import HasMethods, Interval, StrOptions
-# from sklearn.utils.extmath import softmax, stable_cumsum
-# from sklearn.utils.metadata_routing import (
-#     _raise_for_unsupported_routing,
-#     _RoutingNotSupportedMixin,
-# )
-# from sklearn.utils.validation import (
-#     _check_sample_weight,
-#     _num_samples,
-#     check_is_fitted,
-#     has_fit_parameter,
-# )
-# from sklearn.ensemble._base import BaseEnsemble
+from sklearn.ensemble import AdaBoostClassifier
 
 from ..transfer_learning import decode_domains
 

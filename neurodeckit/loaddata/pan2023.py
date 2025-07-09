@@ -187,9 +187,9 @@ class Pan2023(BaseDataset):
             raw_events[:, 0, 0] = event_ids
             data = np.concatenate([raw_data * 1e-6, raw_events], axis=1) #uV to V
             # add buffer in between trials
-            log.warning(
-                "Trial data de-meaned and concatenated with a buffer to create " "cont data"
-            )
+            # log.warning(
+            #     "Trial data de-meaned and concatenated with a buffer to create " "cont data"
+            # )
             zeroshape = (data.shape[0], data.shape[1], 50)
             data = np.concatenate([np.zeros(zeroshape), data, np.zeros(zeroshape)], axis=2)
             

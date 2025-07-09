@@ -14,6 +14,8 @@ from .fbcnet import FBCNet
 from .cspnet import Tensor_CSPNet, Graph_CSPNet
 from .lmda_net import LMDANet
 from .hcann import HCANN
+from .eegsimpleconv import EEGSimpleConv
+from .msvtnet import MSVTNet
 
 # from .dl_classifier import DL_Classifier
 
@@ -31,5 +33,7 @@ __all__ = [
     'Graph_CSPNet',
     'LMDANet',
     'HCANN',
+    'EEGSimpleConv',
+    'MSVTNet',
     'DL_Classifier'
 ]

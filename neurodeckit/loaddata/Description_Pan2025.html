@@ -1,0 +1,51 @@
+<h2>Abstract</h2>
+<p>The Pan2025 dataset contains electroencephalography (EEG) signals from 10 subjects performing motor imagery (MI) tasks across two experimental sessions. This dataset facilitates research on cross-session variability in MI-EEG signals and supports development of robust brain-computer interface (BCI) systems.</p>
+
+<h2>Dataset Composition</h2>
+<p>The dataset includes EEG recordings from 10 subjects across two sessions, featuring left-handed and right-handed MI tasks with visual cues. Data was acquired using:</p>
+<ul>
+  <li>Neuroscan SynAmps2 amplifier</li>
+  <li>28 scalp electrodes (10-20 system)</li>
+  <li>250Hz sampling rate (after downsampling)</li>
+  <li>Band-pass filtering (0.01-200Hz)</li>
+</ul>
+<p>Data is stored in MATLAB format with subject/session labeling.</p>
+
+<h2>Participants</h2>
+<p>The cohort consists of 10 individuals (3 females, 7 males) aged 22-25 years, including 2 left-handed participants. All subjects were neurologically healthy with no movement disorders.</p>
+
+<h2>Experimental Paradigm</h2>
+<p>Referenced from: <em>Pan et al. (2023). Riemannian geometric and ensemble learning for decoding cross-session motor imagery electroencephalography signals. Journal of Neural Engineering</em> <a href="https://doi.org/10.1088/1741-2552/ad0a01">[DOI]</a></p>
+<p>Each session (~180 trials) contained three phases:</p>
+<ul>
+  <li><strong>Rest Period (4s):</strong> Relaxation without mental tasks</li>
+  <li><strong>Task Period (4s):</strong> MI execution (left/right hand)</li>
+</ul>
+<p>Conducted in a controlled environment. For Session 2:</p>
+<ul>
+  <li>First 30 trials: Training</li>
+  <li>Remaining trials: Testing with online feedback</li>
+</ul>
+<p><strong>Note:</strong> Trial counts vary across sessions and subjects.</p>
+
+<h2>Data Acquisition and Preprocessing</h2>
+<p>Technical specifications:</p>
+<ul>
+  <li>Original sampling rate: 1000Hz</li>
+  <li>Band-pass filter: 0.01-200Hz</li>
+  <li>Notch filter: 50Hz (powerline noise removal)</li>
+  <li>Final sampling rate: 250Hz (after downsampling)</li>
+</ul>
+
+<h2>Data Structure</h2>
+<p>MATLAB struct containing:</p>
+<ul>
+  <li><code>data</code>: 3D matrix [n_channels × n_samples × n_trials]</li>
+  <li><code>label</code>: Trial labels [n_trials] (1: left-hand, 2: right-hand)</li>
+  <li><code>fs</code>: Sampling frequency (250Hz)</li>
+  <li><code>period</code>: Trial duration (seconds)</li>
+  <li><code>chaninfo</code>: Channel metadata (cell array)</li>
+</ul>
+
+<h2>References</h2>
+<p>Pan, L., Wang, K., Xu, L., Sun, X., Yi, W., Xu, M. & Ming, D. (2023). Riemannian geometric and ensemble learning for decoding cross-session motor imagery electroencephalography signals. <em>Journal of Neural Engineering</em>, 20(6), 066011. <a href="https://doi.org/10.1088/1741-2552/ad0a01">https://doi.org/10.1088/1741-2552/ad0a01</a></p>

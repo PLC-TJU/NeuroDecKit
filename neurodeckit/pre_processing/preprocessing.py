@@ -71,19 +71,20 @@ class Pre_Processing(BaseEstimator, TransformerMixin):
     """
     
     def __init__(self, 
-                 fs_new=None, fs_old=None,               # downsampling
+                 fs_new=None, fs_old=None,          # downsampling
                  channels=None,                     # channel selection
                  start_time=None, end_time=None,    # time window selection
                  lowcut=None, highcut=None, order=5, filter_type='butter', # bandpass filter    
                  cs_method=None, nelec=10,          # channel selection plus
                  aug_method=None, window_width=1.5, window_step=0.5,  # data augmentation
+                 memory=None,                        # optional parameters
                  **kwargs                           # optional parameters
                  ):
         
         self.steps = []
         self.process = None
         self.compat_flag = True  # compatibility, if True, the final pipeline (self.process) will be compatible with other sklearn pipeline
-        self.memory = kwargs.get('memory', None)
+        self.memory = memory
         self.kwargs = kwargs
         
         # downsampling parameters
@@ -118,10 +119,12 @@ class Pre_Processing(BaseEstimator, TransformerMixin):
         # downsampling
         if self.fs_new is not None and self.fs_old is not None and self.fs_new!= self.fs_old:
             self.steps.append(('downsample', Downsample(fs_new=self.fs_new, fs_old=self.fs_old)))
+            
         # channel selection
         if self.channels is not None:
             self.steps.append(('channel_selector', ChannelSelector(channels=self.channels)))
-        self.steps.append(('flat_channel_remover', FlatChannelRemover()))
+        # self.steps.append(('flat_channel_remover', FlatChannelRemover()))
+        
         # bandpass filter
         if self.lowcut is not None and self.highcut is not None:
             self.steps.append(('bandpass_filter', BandpassFilter(fs=self.fs_new, 
