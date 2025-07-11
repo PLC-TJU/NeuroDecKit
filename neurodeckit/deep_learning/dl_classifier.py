@@ -43,6 +43,24 @@ Initialization Parameters:
                 Z. Miao, M. Zhao, X. Zhang, and D. Ming, "LMDA-Net:A lightweight multi-dimensional attention network
                 for general EEG-based brain-computer interfaces and interpretability," Neuroimage, vol. 276, p. 120209,
                 Aug 1 2023, doi: 10.1016/j.neuroimage.2023.120209.
+        'EEGConformer'
+                Y. Song, Q. Zheng, B. Liu, and X. Gao, “EEG conformer: Convolutional transformer for EEG decoding and 
+                visualization,” IEEE Transactions on Neural Systems and Rehabilitation Engineering, 
+                vol. 31, pp. 710–719, 2022.
+        'LightConvNet'
+                X. Ma, W. Chen, Z. Pei, J. Liu, B. Huang, and J. Chen, “A Temporal Dependency Learning CNN With Attention 
+                Mechanism for MI-EEG Decoding,” IEEE Transactions on Neural Systems and Rehabilitation Engineering, 
+                vol. 31, pp. 3188–3200, 2023, doi: 10.1109/TNSRE.2023.3299355.
+        'IFNet'
+                J. Wang, L. Yao, and Y. Wang, “IFNet: An Interactive Frequency Convolutional Neural Network for 
+                Enhancing Motor Imagery Decoding From EEG,” IEEE Transactions on Neural Systems and Rehabilitation 
+                Engineering, vol. 31, pp. 1900–1911, 2023, doi: 10.1109/TNSRE.2023.3257319.
+        'MSVTNet'
+                K. Liu et al., "MSVTNet: Multi-Scale Vision Transformer Neural Network for EEG-Based Motor Imagery 
+                Decoding," IEEE Journal of Biomedical and Health Informatics, vol. 28, no. 12, pp. 7126–7137, 
+                Dec. 2024, doi: 10.1109/JBHI.2024.3450753.
+        
+
              
     2> fs (int): Sampling frequency of the EEG data.
     3> batch_size (int): Number of samples per batch during training.
@@ -111,11 +129,13 @@ import torch
 from sklearn.base import BaseEstimator, TransformerMixin, ClassifierMixin
 from sklearn.metrics import accuracy_score
 from sklearn.pipeline import make_pipeline
-from . import (EEGNet, ShallowNet, DeepNet,         
-               EEGNetv4, ShallowFBCSPNet, Deep4Net,  #推荐使用这三种
-               FBCNet, Tensor_CSPNet, Graph_CSPNet, 
-               LMDANet)
 from . import Formatdata
+from . import (EEGNet, ShallowNet, DeepNet,         
+               EEGNetv4, ShallowFBCSPNet, Deep4Net,  #推荐使用这三种（原版）
+               FBCNet, Tensor_CSPNet, Graph_CSPNet, 
+               LMDANet, MSVTNet, IFNet, EEGConformer, LightConvNet
+               )
+
 
 
 def check_nn(est):
@@ -136,6 +156,10 @@ def check_nn(est):
         'Graph_CSPNet': Graph_CSPNet, # 同理
         'oGraph_CSPNet': Graph_CSPNet,
         'LMDANet': LMDANet,
+        'MSVTNet': MSVTNet,
+        'IFNet': IFNet,
+        'EEGConformer': EEGConformer,
+        'LightConvNet': LightConvNet,
     }
 
     if callable(est):
@@ -158,15 +182,15 @@ class DL_Classifier(BaseEstimator, ClassifierMixin, TransformerMixin):
                  n_classes=2, 
                  fs=128, 
                  batch_size=32, 
-                 lr=1e-2, 
-                 max_epochs=200, 
+                 lr=1e-3, 
+                 max_epochs=300, 
                  device='cpu', 
                  freqband=None, 
-                 dtype='float32', 
+                 dtype='float32', # 默认使用float32以节省内存, 也可以使用float64
                  seed=42, 
                  patience=50, 
                  rsf_method='none', 
-                 rsf_dim=4, 
+                 rsf_dim=10, 
                  **kwargs
                  ):
 
@@ -182,10 +206,10 @@ class DL_Classifier(BaseEstimator, ClassifierMixin, TransformerMixin):
         self.Process = None
         self.Net = None
         self.Model = None
-        self.rsf_method = rsf_method  # Provide a default value if key is not present
+        self.rsf_method = rsf_method
         self.rsf_dim = rsf_dim
         self.freqband = freqband
-        self.dtype = dtype # 默认使用float32, 也可以使用float64
+        self.dtype = dtype 
         self.seed = seed
         self.patience = patience
         self.kwargs = kwargs
@@ -198,11 +222,17 @@ class DL_Classifier(BaseEstimator, ClassifierMixin, TransformerMixin):
             'dtype': self.dtype,
             'seed': self.seed,
             'patience': self.patience,
-            # **kwargs  # This allows for any additional parameters to be passed
+            **kwargs  # This allows for any additional parameters to be passed
         }
 
     def fit(self, X, y):
+        self.classes_ = sorted(set(y))
+        self.n_classes = len(self.classes_)
+        
+        # 复制数据
         X = X.copy()
+        n_channels, n_samples = X.shape[1], X.shape[2]
+        
         # 提取实际的模型名称
         self.pp_name = self.model_name.split('-')[0] if '-' in self.model_name else 'None'
         self.nn_name = self.model_name.split('-')[-1] if '-' in self.model_name else self.model_name
@@ -210,7 +240,9 @@ class DL_Classifier(BaseEstimator, ClassifierMixin, TransformerMixin):
         # 转换数据
         Process = None
         if self.pp_name.lower() == 'rsf' or self.nn_name in ['Graph_CSPNet', 'Tensor_CSPNet', 'FBCNet',
-                                                             'oGraph_CSPNet', 'oTensor_CSPNet', 'oFBCNet']:
+                                                             'oGraph_CSPNet', 'oTensor_CSPNet', 'oFBCNet',
+                                                             'LightConvNet', 'IFNet'
+                                                             ]:
             Process = Formatdata(fs=self.fs, n_times=X.shape[2], alg_name=self.nn_name, dtype=self.dtype,   
                                  rsf_method=self.rsf_method, rsf_dim=self.rsf_dim, freqband=self.freqband)
             X = Process.fit_transform(X, y)
@@ -224,9 +256,13 @@ class DL_Classifier(BaseEstimator, ClassifierMixin, TransformerMixin):
             Net = Network(len(Process.time_seg), X.shape[1] * X.shape[2], X.shape[3], n_classes = self.n_classes, 
                           net_params=self.net_params)
         elif self.nn_name in ['FBCNet', 'oFBCNet']:
-            Net = Network(X.shape[2], X.shape[3], n_classes = self.n_classes, net_params=self.net_params)
+            Net = Network(X.shape[2], X.shape[3], self.n_classes, net_params=self.net_params)
+        elif self.nn_name in ['LightConvNet']:
+            Net = Network(X.shape[2], X.shape[3], self.n_classes, win_len=self.fs, net_params=self.net_params)# 默认1秒时间窗宽
+        elif self.nn_name in ['IFNet']:
+            Net = Network(n_channels, n_samples, self.n_classes, net_params=self.net_params)
         else:
-            Net = Network(X.shape[1], X.shape[2], n_classes = self.n_classes, net_params=self.net_params)
+            Net = Network(X.shape[1], X.shape[2], self.n_classes, net_params=self.net_params)
         
         # 训练深度学习模型
         Net.fit(X.astype(self.dtype).copy(), y.astype('int64').copy())
@@ -291,9 +327,7 @@ class DL_Classifier(BaseEstimator, ClassifierMixin, TransformerMixin):
                 
                 elif self.nn_name in ['FBCNet', 'oFBCNet']:
                     X = torch.squeeze(X.permute((0,4,2,3,1)), dim = 4)
-                    # 去掉全连接层
                     model_without_fc = torch.nn.Sequential(*list(self.Net.module.children())[:-1]).to(self.device)
-                    # 计算特征输出  
                     fc_input = model_without_fc(X)
                 
                 elif self.nn_name in ['Tensor_CSPNet', 'oTensor_CSPNet']:
@@ -305,22 +339,16 @@ class DL_Classifier(BaseEstimator, ClassifierMixin, TransformerMixin):
                     fc_input = self.Net.module.Temporal_Block(X_vec).reshape(X.shape[0], -1)
 
                 elif self.nn_name in ['EEGNetv4','ShallowFBCSPNet','Deep4Net','Graph_CSPNet', 'oGraph_CSPNet']:
-                    # 去掉全连接层
                     model_without_fc = torch.nn.Sequential(*list(self.Net.module.children())[:-1]).to(self.device)
-                    # 计算特征输出  
                     fc_input = model_without_fc(X)
                 
                 elif self.nn_name in ['EEGNet', 'ShallowNet']:
                     self.Net.module.model.eval()
-                    # 去掉全连接层
                     model_without_fc = torch.nn.Sequential(*list(self.Net.module.model.children())[:-1]).to(self.device)
-                    # 计算特征输出  
                     fc_input = model_without_fc(X.unsqueeze(1))
                 
                 elif self.nn_name in ['DeepNet']:
-                    # 去掉全连接层
                     model_without_fc = torch.nn.Sequential(*list(self.Net.module.children())[:-3]).to(self.device)
-                    # 计算特征输出  
                     fc_input = model_without_fc(X)
                 
                 else:

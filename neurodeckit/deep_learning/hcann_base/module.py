@@ -1,8 +1,3 @@
-
-"""
-modiified from https://github.com/youshuoji/HCANN/blob/main/main.py
-"""
-
 import torch
 import torch.nn as nn
 import matplotlib.pyplot as plt
@@ -12,94 +7,44 @@ import torch.nn.functional as F
 import torch.utils.data as Data
 from einops import rearrange
 
-from .base import SkorchNet2
+## transformer
+class Position_embedding_T(nn.Module):
+    def __init__(self, channels, dropout, sample_time=1024*1):
+        super(Position_embedding_T, self).__init__()
+        self.dropout = nn.Dropout(p=dropout)
 
-__all__ = ["HCANN"]
-
-
-@SkorchNet2
-class HCANN(nn.Module):
-    def __init__(self, 
-                 fs=1024, 
-                 channels=[8, 16, 16, 8, 8, 16], 
-                 dims=[256, 32], 
-                 depth=[6, 4], 
-                 heads=[4, 2],  
-                 num_classes=8, 
-                 dim_initial=1024, 
-                 dropout=0.5,
-        ):
-        super(HCANN, self).__init__()
-        self.dim_initial = dim_initial
-        self.conv_T_1_1x16 = nn.Sequential(
-            nn.ZeroPad2d((7, 8, 0, 0)),
-            nn.Conv2d(in_channels=1, out_channels=8, kernel_size=(1, 16), stride=1, bias=False),
-            nn.BatchNorm2d(8, momentum=0.01, affine=True, eps=1e-3),
-            nn.ELU()
-        )
-        self.conv_T_2_1x16 = nn.Sequential(
-            nn.ZeroPad2d((7, 8, 0, 0)),
-            nn.Conv2d(in_channels=8, out_channels=8, kernel_size=(1, 16), stride=1, bias=False),
-            nn.BatchNorm2d(8, momentum=0.01, affine=True, eps=1e-3),
-            nn.ELU()
-        )
-        self.conv_T_3_1x8 = nn.Sequential(
-            nn.ZeroPad2d((4, 3, 0, 0)),
-            SeparableConv2d(in_channels=8, out_channels=16, kernel_size=(1, 8), stride=1, bias=False),
-            nn.BatchNorm2d(16, momentum=0.01, affine=True, eps=1e-3),
-            nn.ELU()
-        )
-        self.conv_T_4_1x8 = nn.Sequential(
-            nn.ZeroPad2d((4, 3, 0, 0)),
-            SeparableConv2d(in_channels=16, out_channels=16, kernel_size=(1, 8), stride=1, bias=False),
-            nn.BatchNorm2d(16, momentum=0.01, affine=True, eps=1e-3),
-            nn.ELU()
-        )
-
-        self.conv_S = nn.Sequential(
-            Conv2dWithConstraint(in_channels=16, out_channels=16, kernel_size=(64, 1), bias=False, stride=(64, 1)),
-            nn.BatchNorm2d(16, momentum=0.01, affine=True, eps=1e-3),
-            nn.Hardswish()
-        )
-
-        self.AvgPooling1 = nn.AdaptiveAvgPool2d((64, self.dim_initial//4))
-        self.AvgPooling2 = nn.AdaptiveAvgPool2d((64, self.dim_initial//32))
-        self.dropout = nn.Dropout(dropout)
-
-        self.transformer = nn.ModuleList([])
-        self.transformer.append(transformer(depth=depth[0], dim=dims[0], heads=heads[0], hidden_feed=2, channel=8, dropout=dropout))
-        self.transformer.append(transformer(depth=depth[1], dim=dims[1], heads=heads[1], hidden_feed=4, channel=16, dropout=dropout))
-
-
-        self.fc = nn.Linear(dim_initial*16//32, 8)
+        position_time = torch.rand(size=(channels, sample_time))
+        self.register_buffer('position_time', position_time)
 
     def forward(self, x):
-        out = x
-        # out = self.conv_channel64(x)
-        out = rearrange(out, 'b c t -> b 1 c t')
-        out = self.conv_T_1_1x16(out)
-        out = self.conv_T_2_1x16(out)
-        out = self.AvgPooling1(out)
-        out = self.dropout(out)
+        x = x + Variable(nn.ReLU(self.position_time), requires_grad=True)
+        return self.dropout(x)
 
-        out = self.transformer[0](out)
+class Multi_Head_Attention(nn.Module):
+    def __init__(self, dim_model, heads, dim_head, dropout=0.):
+        super(Multi_Head_Attention, self).__init__()
+        self.heads = heads
+        # assert dim_model % heads == 0
+        inner_dim = heads * dim_head
 
-        out = self.conv_T_3_1x8(out)
-        out = self.conv_T_4_1x8(out)
+        self.to_qkv = nn.Linear(dim_model, inner_dim * 3, bias=False)
+        # self.layer_norm = nn.LayerNorm(dim_model)
+        self.attend = nn.Softmax(dim=-1)
+        self.scale = dim_head ** -0.5
+        self.to_out = nn.Sequential(
+            nn.Linear(inner_dim, dim_model),
+            nn.Dropout(dropout)
+        )
 
+    def forward(self, x):
+        qkv = self.to_qkv(x).chunk(3, dim=-1)
+        q, k, v = map(lambda t: rearrange(t, 'b p n (h d) -> b p h n d', h=self.heads), qkv)
 
-        out = self.AvgPooling2(out)
-        out = self.dropout(out)
-        out = self.transformer[1](out)
-
-        out = self.conv_S(out)
-
-
-        out = out.flatten(start_dim=1)
-        # out = self.fc2(self.fc(out))
-        out = self.fc(out)
-        return out
-
+        dots = torch.matmul(q, k.transpose(-1, -2)) * self.scale
+        attd = self.attend(dots)
+        out = torch.matmul(attd, v)
+        out = rearrange(out, 'b p h n d -> b p n (h d)')
+        return self.to_out(out)
 
 class Position_wise_Feed_Forward(nn.Module):
     def __init__(self, dim_model, hidden, channel, dropout=0.0):
@@ -176,6 +121,50 @@ class transformer(nn.Module):
             x = feed(x) + x
         return x
 
+class temporal_block(nn.Module):
+    def __init__(self, input_dim, output_dim, kernek_size, pad_len, stride=1, expansion=2, dropout=0.):
+        super().__init__()
+
+        self.stride = stride
+
+        hidden_dim = int(input_dim * expansion)
+        self.use_res_connect = self.stride == 1 and input_dim == output_dim
+
+        if expansion == 1:
+            self.conv = nn.Sequential(
+                nn.ZeroPad2d(pad_len),
+                nn.Conv2d(in_channels=input_dim, out_channels=hidden_dim, kernel_size=kernek_size, stride=stride,
+                          groups=hidden_dim, bias=True),
+                nn.BatchNorm2d(hidden_dim),
+                nn.ELU(),
+                nn.Dropout(dropout),
+                nn.Conv2d(in_channels=hidden_dim, out_channels=output_dim, kernel_size=1, stride=1, bias=True),
+                nn.BatchNorm2d(output_dim)
+            )
+        else:
+            self.conv = nn.Sequential(
+                nn.Conv2d(in_channels=input_dim, out_channels=hidden_dim, kernel_size=1, stride=1, bias=True),
+                nn.BatchNorm2d(hidden_dim),
+                nn.ELU(),
+
+                nn.ZeroPad2d(pad_len),
+                nn.Conv2d(in_channels=hidden_dim, out_channels=hidden_dim, kernel_size=kernek_size, stride=stride,
+                          groups=hidden_dim, bias=True),
+                nn.BatchNorm2d(hidden_dim),
+                nn.ELU(),
+                nn.Dropout(dropout),
+
+                nn.Conv2d(in_channels=hidden_dim, out_channels=output_dim, kernel_size=1, stride=1, bias=True),
+                nn.BatchNorm2d(output_dim)
+            )
+
+    def forward(self, x):
+        if self.use_res_connect:
+            return x + self.conv(x)
+        else:
+            return self.conv(x)
+
+
 class Conv2dWithConstraint(nn.Conv2d):
     def __init__(self, *args, max_norm=1, **kwargs):
         self.max_norm = max_norm
@@ -199,4 +188,3 @@ class SeparableConv2d(nn.Module):
         x = self.conv1(x)
         x = self.pointwise(x)
         return x
-

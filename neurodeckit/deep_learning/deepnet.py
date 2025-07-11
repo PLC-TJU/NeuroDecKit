@@ -24,6 +24,8 @@ from .base import (
     SkorchNet2,
 )
 
+__all__ = ["Deep4Net"]
+
 
 @SkorchNet2
 class Deep4Net(nn.Sequential):

@@ -1,8 +1,15 @@
+# Author: Tao, Yang
+# url: "https://github.com/SheepTAO/dpeeg"
+# [1] K. Liu et al., “MSVTNet: Multi-Scale Vision Transformer Neural Network for EEG-Based Motor Imagery Decoding,” 
+#     in IEEE Journal of Biomedical and Health Informatics, doi: 10.1109/JBHI.2024.3450753.
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from einops.layers.torch import Rearrange
-from .base import SkorchNet2
+from neurodeckit.deep_learning.base import SkorchNet2
+
+__all__ = ["MSVTNet"]
 
 class TSConv(nn.Sequential):
     def __init__(self, nCh, F, C1, C2, D, P1, P2, Pc) -> None:
@@ -72,11 +79,14 @@ class ClsHead(nn.Sequential):
 
 @SkorchNet2
 class MSVTNet(nn.Module):
+    # %(n_channels)
+    # %(n_samples)
+    # %(n_classes)
     def __init__(
         self,
-        nCh = 22,
-        nTime = 1000,
-        cls = 4,
+        n_channels = 22,
+        n_samples = 1000,
+        n_classes = 4,
         F = [9, 9, 9, 9],
         C1 = [15, 31, 63, 125],
         C2 = 15,
@@ -88,24 +98,24 @@ class MSVTNet(nn.Module):
         ff_ratio = 1,
         Pt = 0.5,
         layers = 2,
-        b_preds = True,
+        b_preds = False,
     ) -> None:
         super().__init__()
-        self.nCh = nCh
-        self.nTime = nTime
+        self.nCh = n_channels
+        self.nTime = n_samples
         self.b_preds = b_preds
         assert len(F) == len(C1), 'The length of F and C1 should be equal.'
 
         self.mstsconv = nn.ModuleList([
             nn.Sequential(
-                TSConv(nCh, F[b], C1[b], C2, D, P1, P2, Pc),
+                TSConv(n_channels, F[b], C1[b], C2, D, P1, P2, Pc),
                 Rearrange('b d 1 t -> b t d')
             )
             for b in range(len(F))
         ])
         branch_linear_in = self._forward_flatten(cat=False)
         self.branch_head = nn.ModuleList([
-            ClsHead(branch_linear_in[b].shape[1], cls)
+            ClsHead(branch_linear_in[b].shape[1], n_classes)
             for b in range(len(F))
         ])
 
@@ -113,7 +123,7 @@ class MSVTNet(nn.Module):
         self.transformer = Transformer(seq_len, d_model, nhead, ff_ratio, Pt, layers)
 
         linear_in = self._forward_flatten().shape[1] # type: ignore
-        self.last_head = ClsHead(linear_in, cls)
+        self.last_head = ClsHead(linear_in, n_classes)
 
     def _forward_mstsconv(self, cat = True):
         x = torch.randn(1, 1, self.nCh, self.nTime)
@@ -132,6 +142,7 @@ class MSVTNet(nn.Module):
         return x
 
     def forward(self, x):
+        x = x.unsqueeze(1) 
         x = [tsconv(x) for tsconv in self.mstsconv]
         bx = [branch(x[idx]) for idx, branch in enumerate(self.branch_head)]
         x = torch.cat(x, dim=2)
@@ -157,9 +168,3 @@ class JointCrossEntoryLoss(nn.Module):
         loss = self.lamd * end_loss + (1 - self.lamd) * torch.sum(branch_loss)
         return loss
 
-
-if __name__ == '__main__':
-    from torchinfo import summary
-    net = MSVTNet(nCh=22, nTime=1000).cuda()
-    print(net)
-    summary(net, (64, 1, 22, 1000), depth=4)

@@ -12,6 +12,8 @@ from .base import SkorchNet2
 import sys
 current_module = sys.modules[__name__]
 
+__all__ = ["FBCNet", "eegNet", "deepConvNet"]
+
 
 #%% Deep convnet - Baseline 1
 @SkorchNet2

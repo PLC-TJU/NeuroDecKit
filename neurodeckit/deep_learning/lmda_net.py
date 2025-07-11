@@ -15,6 +15,8 @@ import torch
 import torch.nn as nn
 from .base import SkorchNet2
 
+__all__ = ["LMDANet"]
+
 class EEGDepthAttention(nn.Module):
     """
     Build EEG Depth Attention module.

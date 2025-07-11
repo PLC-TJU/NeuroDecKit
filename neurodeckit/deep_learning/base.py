@@ -256,6 +256,7 @@ class SkorchNet:
 
 # Authors: LC.Pan
 # Date: 2024/3/14
+
 # 现在可以在实例化模型时通过字典net_params传递参数（可选）来调整神经网络模型训练时的参数：
 # net_params = {
 #    'dtype': 'float64',

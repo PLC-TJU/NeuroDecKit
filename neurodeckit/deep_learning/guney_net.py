@@ -16,6 +16,7 @@ from .base import (
     SkorchNet,
 )
 
+__all__ = ["GuneyNet"]
 
 @SkorchNet
 class GuneyNet(nn.Module):

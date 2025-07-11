@@ -12,6 +12,8 @@ from braindecode.models.functions import identity, squeeze_final_output
 from braindecode.models.modules import AvgPool2dWithConv, CombinedConv, Ensure4d, Expression
 from .base import SkorchNet2
 
+__all__ = ["Deep4Net"]
+
 @SkorchNet2
 class Deep4Net(EEGModuleMixin, nn.Sequential):
     """Deep ConvNet model from Schirrmeister et al 2017.

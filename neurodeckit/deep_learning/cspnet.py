@@ -40,6 +40,8 @@ import numpy as np
 import geoopt
 from .base import SkorchNet2
 
+__all__ = ["Tensor_CSPNet", "Graph_CSPNet"]
+
 dtype =th.double
 device=th.device('cpu')
 

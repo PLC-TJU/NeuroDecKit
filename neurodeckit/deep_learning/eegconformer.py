@@ -1,3 +1,6 @@
+# Author: Tao, Yang
+# url: "https://github.com/SheepTAO/dpeeg"
+
 import torch
 import torch.nn.functional as F
 import torch.nn as nn
@@ -221,13 +224,14 @@ class EEGConformer(nn.Module):
         Parameters
         ----------
         x : Tensor
-            Input EEG data, shape `(batch_size, 1, nCh, nTime)`.
+            Input EEG data, shape `(batch_size, nCh, nTime)`.
 
         Returns
         -------
         cls_prob : Tensor
             Predicted class probability, shape `(batch_size, nCls)`.
         """
+        x = x.unsqueeze(1) 
         out = self.patch_embedding(x)
         out = self.transformer_encoder(out)
         return self.classification_head(out)

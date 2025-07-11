@@ -105,6 +105,7 @@ def mekt_feature(X, sample_weight=None, metric='riemann'):
         feature of X, shape (n_trials, n_feature)
 
     """
+    sample_weight = check_weights(sample_weight, X.shape[0])
 
     # Covariance Matrix Centroid Alignment
     M = mean_covariance(X, metric=metric, sample_weight=sample_weight)

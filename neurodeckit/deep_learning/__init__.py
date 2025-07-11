@@ -10,16 +10,18 @@ from .deep4 import Deep4Net
 from .shallow_fbcsp import ShallowFBCSPNet
 
 from .fbcnet import FBCNet
-
 from .cspnet import Tensor_CSPNet, Graph_CSPNet
 from .lmda_net import LMDANet
-from .hcann import HCANN
-from .eegsimpleconv import EEGSimpleConv
+
 from .msvtnet import MSVTNet
+from .ifnet import IFNet, IFNetAdamW
+from .hcann import HCANN
+from .eegconformer import EEGConformer
+from .lightconvnet import LightConvNet
 
-# from .dl_classifier import DL_Classifier
+from .eegsimpleconv import EEGSimpleConv
 
-__all__ = [ 
+__all__ = [
     'EEGNet',
     'ShallowNet',
     'DeepNet',
@@ -32,8 +34,11 @@ __all__ = [
     'Tensor_CSPNet',
     'Graph_CSPNet',
     'LMDANet',
-    'HCANN',
-    'EEGSimpleConv',
     'MSVTNet',
-    'DL_Classifier'
+    'IFNet',
+    'IFNetAdamW',
+    'HCANN',
+    'EEGConformer',
+    'LightConvNet',
+    'EEGSimpleConv',
 ]

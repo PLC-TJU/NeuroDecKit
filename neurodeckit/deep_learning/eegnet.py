@@ -21,6 +21,8 @@ from .base import (
     SkorchNet2,
 )
 
+__all__ = ["EEGNet"]
+
 
 class SeparableConv2d(nn.Module):
     """An equally SeparableConv2d in Keras.

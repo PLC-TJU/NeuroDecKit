@@ -1,9 +1,14 @@
+# Author: Jiaheng-Wang
+# url: "https://github.com/Jiaheng-Wang/IFNet"
+
+# Author: Tao, Yang
+# url: "https://github.com/SheepTAO/dpeeg"
+
 import torch
 import torch.nn as nn
 from torch.optim.adamw import AdamW
 from torch.nn.init import trunc_normal_, constant_
 from .base import SkorchNet2
-
 
 
 __all__ = ["IFNet", "IFNetAdamW"]
@@ -56,9 +61,9 @@ class IFNet(nn.Module):
 
     def __init__(
         self,
-        nCh: int,
-        nTime: int,
-        nCls: int,
+        n_channels: int,
+        n_samples: int,
+        n_classes: int,
         F: int = 64,
         C: int = 63,
         radix: int = 2,
@@ -70,7 +75,7 @@ class IFNet(nn.Module):
         self.mF = F * radix
 
         self.sConv = nn.Sequential(
-            nn.Conv1d(nCh * radix, self.mF, 1, bias=False, groups=radix),
+            nn.Conv1d(n_channels * radix, self.mF, 1, bias=False, groups=radix),
             nn.BatchNorm1d(self.mF),
         )
 
@@ -87,7 +92,7 @@ class IFNet(nn.Module):
         self.interFre = InterFre()
         self.downSamp = nn.Sequential(nn.AvgPool1d(P), nn.Dropout(dropout))
         self.fc = nn.Sequential(
-            nn.Flatten(), nn.Linear(int(F * (nTime // P)), nCls), nn.LogSoftmax(dim=1)
+            nn.Flatten(), nn.Linear(int(F * (n_samples // P)), n_classes), nn.LogSoftmax(dim=1)
         )
 
         self.apply(self.initParms)

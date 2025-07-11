@@ -77,7 +77,7 @@ class FilterBank:
         #     self.filter_coeff.update({i:{'b':b,'a':a}})
             
         return self.filter_coeff
-
+    
     def filter_data(self,eeg_data,window_details={}):
         n_trials, n_channels, n_samples = eeg_data.shape
 
@@ -100,6 +100,31 @@ class FilterBank:
                 filtered_data[i, j, :, :] = eeg_data_filtered
 
         return filtered_data
+
+# for IFNet
+class IFNetBank(FilterBank):
+    def __init__(self, fs):
+        self.fs           = fs
+        self.f_trans      = 2
+        self.gpass        = 3
+        self.gstop        = 30
+        self.filter_coeff = {}
+
+    def get_filter_coeff(self):
+        Nyquist_freq = self.fs/2
+ 
+        pass_list = [[4, 16],[16, 40]]
+        for i, f_pass in enumerate(np.array(pass_list)):
+            f_stop    = np.asarray([f_pass[0]-self.f_trans, f_pass[1]+self.f_trans])
+            wp        = f_pass/Nyquist_freq
+            ws        = f_stop/Nyquist_freq
+            order, wn = cheb2ord(wp, ws, self.gpass, self.gstop)
+            b, a      = signal.cheby2(order, self.gstop, ws, btype='bandpass')
+            self.filter_coeff.update({i:{'b':b,'a':a}})
+            
+        return self.filter_coeff
+
+
 
 class Formatdata(BaseEstimator, TransformerMixin):
     def __init__(self, fs, n_times = None, alg_name ='Tensor_CSPNet', rsf_method='none', rsf_dim=4, **kwargs):
@@ -301,7 +326,7 @@ class Formatdata(BaseEstimator, TransformerMixin):
             X_fb  = fbank.filter_data(X).transpose(1, 0, 2, 3)
             X_transformed = self._tensor_stack(X_fb)
             
-        elif self.alg_name == 'FBCNet':
+        elif self.alg_name in ['FBCNet']:
             fbank = FilterBank(fs = self.fs, pass_width = self.freq_seg)
             _     = fbank.get_filter_coeff()
             '''The shape of x_fb is No. of (trials, channels, timestamps, frequency bands)'''
@@ -314,14 +339,42 @@ class Formatdata(BaseEstimator, TransformerMixin):
                 else:
                     X_fb = np.stack([self.rsf_transformer.transform(X_fb[:, :, :, band])
                                     for band in range(X_fb.shape[3])], axis=3)
-            X_transformed = np.expand_dims(X_fb, axis=1)
+            X_transformed = np.expand_dims(X_fb, axis=1) # trials, 1, channels, timestamps, frequency bands
         
-        elif self.alg_name == 'oFBCNet':
+        elif self.alg_name in ['oFBCNet']:
             fbank = FilterBank(fs = self.fs, pass_width = self.freq_seg)
             _     = fbank.get_filter_coeff()
             '''The shape of x_fb is No. of (trials, frequency bands, channels, timestamps)'''
             X_fb  = fbank.filter_data(X).transpose(1, 2, 3, 0)  
-            X_transformed = np.expand_dims(X_fb, axis=1)
+            X_transformed = np.expand_dims(X_fb, axis=1) # trials, 1, channels, timestamps, frequency bands
+        
+        elif self.alg_name in ['IFNet']:
+            fbank = IFNetBank(fs = self.fs)
+            _     = fbank.get_filter_coeff()
+            X_fb  = fbank.filter_data(X).transpose(1, 0, 2, 3)  
+            X_transformed = X_fb.reshape(X_fb.shape[0], X_fb.shape[1] * X_fb.shape[2], X_fb.shape[3]) # trials, channels*frequency bands, timestamps
+        
+        elif self.alg_name in ['LightConvNet']:
+            fbank = FilterBank(fs = self.fs, pass_width = self.freq_seg)
+            _     = fbank.get_filter_coeff()
+            '''The shape of x_fb is No. of (trials, channels, timestamps, frequency bands)'''
+            X_fb  = fbank.filter_data(X).transpose(1, 2, 3, 0)                
+            if self.rsf_method != 'none':
+                if self.is_training:
+                    self.rsf_transformer = RSF(self.rsf_dim, self.rsf_method)
+                    X_fb = np.stack([self.rsf_transformer.fit_transform(X_fb[:, :, :, band], self.labels)
+                                    for band in range(X_fb.shape[3])], axis=3)
+                else:
+                    X_fb = np.stack([self.rsf_transformer.transform(X_fb[:, :, :, band])
+                                    for band in range(X_fb.shape[3])], axis=3)
+            X_transformed = X_fb.transpose(0, 3, 1, 2) # trials, frequency bands, channels, timestamps
+        
+        elif self.alg_name in ['oLightConvNet']:
+            fbank = FilterBank(fs = self.fs, pass_width = self.freq_seg)
+            _     = fbank.get_filter_coeff()
+            '''The shape of x_fb is No. of (trials, frequency bands, channels, timestamps)'''
+            X_fb  = fbank.filter_data(X).transpose(1, 2, 3, 0)  
+            X_transformed = X_fb.transpose(0, 3, 1, 2) # trials, frequency bands, channels, timestamps
         
         elif self.alg_name in ['FB-CSP','FB-CSP-LDA','FB-CSP-SVM','RSF-FB-CSP-LDA','RSF-FB-CSP-SVM']:
             fbank = FilterBank(fs = self.fs, pass_width = self.freq_seg)

@@ -1,3 +1,6 @@
+# Author: Tao, Yang
+# url: "https://github.com/SheepTAO/dpeeg"
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -101,9 +104,9 @@ class LightConvNet(nn.Module):
 
     Parameters
     ----------
-    %(nCh)s
-    %(nTime)s
-    %(nCls)s
+    %(n_channels)
+    %(n_samples)
+    %(n_classes)
     bands : int
         The filter dimension of the input multi-view data.
     embed_dim : int
@@ -127,9 +130,9 @@ class LightConvNet(nn.Module):
 
     def __init__(
         self,
-        nCh: int,
-        nTime: int,
-        nCls: int,
+        n_channels: int,
+        n_samples: int,
+        n_classes: int,
         bands: int = 9,
         embed_dim: int = 64,
         win_len: int = 250,
@@ -141,20 +144,20 @@ class LightConvNet(nn.Module):
         self.win_len = win_len
 
         self.spacial_block = nn.Sequential(
-            nn.Conv2d(bands, embed_dim, (nCh, 1)), nn.BatchNorm2d(embed_dim), nn.ELU()
+            nn.Conv2d(bands, embed_dim, (n_channels, 1)), nn.BatchNorm2d(embed_dim), nn.ELU()
         )
 
         self.temporal_block = LogVarLayer(dim=3)
 
         self.conv = LightweightConv1d(
             embed_dim,
-            (nTime // win_len),
+            (n_samples // win_len),
             heads=heads,
             weight_softmax=weight_softmax,
             bias=bias,
         )
 
-        self.classify = nn.Sequential(nn.Linear(embed_dim, nCls), nn.LogSoftmax(dim=1))
+        self.classify = nn.Sequential(nn.Linear(embed_dim, n_classes), nn.LogSoftmax(dim=1))
 
     def forward(self, x):
         """Forward pass function that processes the input EEG data and produces

@@ -72,66 +72,32 @@ from ..transfer_learning import decode_domains
             )
         ],
     },
-    prefer_skip_nested_validation=False # skip nested validation for now
+    prefer_skip_nested_validation=False # 跳过嵌套验证
 )
 def _cross_val_predict(estimator, X, y_enc, cv_splits, method="predict", fit_params=None, n_jobs=None):
-    """ Private function used to cross-validate and predict with an estimator.
-    This function is used by the `DomainAdaptiveStackingClassifier` class to perform
-    cross-validation and predict with the base estimators and the meta-features.
+    """自定义交叉验证预测函数，正确处理域编码标签"""
     
-    Parameters
-    ----------
-    estimator : estimator object implementing 'fit'
-        The object to use to fit the data.
-
-    X : array-like of shape (n_samples, n_features)
-        The data to fit.
-
-    y_enc : array-like of shape (n_samples,)
-        The encoded labels for the data.
-
-    cv_splits : list of tuples
-        The cross-validation splits to use. Each tuple contains two arrays,
-        the training indices and the testing indices.
-
-    method : str, default='predict'
-        The method to use to predict on the data.
-
-    fit_params : dict, default=None
-        Parameters to pass to the fit method of the estimator. 
-        ('predict', 'predict_proba', 'predict_log_proba', 'decision_function'))
-
-    n_jobs : int, default=None
-        The number of jobs to use for the computation.
-
-    Returns
-    -------
-    predictions : array-like of shape (n_samples, n_outputs)
-        The predictions for each sample.
-    """
-    
-    # validate and prepare input data
+    # 验证并准备输入数据
     X, y_enc = indexable(X, y_enc)
     n_samples = X.shape[0]
     
-    # validate method
+    # 验证预测方法
     if not hasattr(estimator, method):
         raise ValueError(f"Estimator does not implement the '{method}' method")
     
-    # validate cv_splits
+    # 验证交叉验证分割
     if len(cv_splits) == 0:
         raise ValueError("No cross-validation splits provided")    
     
-    # check if all test indices cover all samples (to ensure meta-features can be used)
+    # 检查所有测试索引是否覆盖所有样本(确保可用于meta-features)
     all_test_indices = np.concatenate([test_idx for _, test_idx in cv_splits])
     if len(np.unique(all_test_indices)) != n_samples:
         raise ValueError("Cross-validation splits do not cover all samples")
     
     # 确定预测结果的形状和数据类型
-    # make s
     try:
         # 使用样本子集安全测试预测形状
-        test_idx_sample = cv_splits[0][1][:1] 
+        test_idx_sample = cv_splits[0][1][:1]  # 取第一个测试集的第一个样本
         sample_pred = getattr(deepcopy(estimator), method)(X[test_idx_sample])
         
         if sample_pred.ndim == 1:
@@ -265,7 +231,7 @@ class _BaseDomainAdaptiveStacking(_BaseStacking):
         n_jobs=None,
         verbose=0,
         passthrough=False,
-        target_domain=None,
+        target_domain=None, # important parameter
         domain_group_strategy='leave_one_domain_out',
     ):
         super().__init__(
@@ -279,6 +245,12 @@ class _BaseDomainAdaptiveStacking(_BaseStacking):
         )
         self.target_domain = target_domain
         self.domain_group_strategy = domain_group_strategy
+        self.fit_params = None
+        self.estimators_ = None
+        self.named_estimators_ = None
+        self.stack_method_ = None
+        self.feature_names_in_ = None
+        self.final_estimator_ = None
         
     def _decode_domains(self, X, y_enc):
         """Decode domain information from encoded labels."""
@@ -320,6 +292,7 @@ class _BaseDomainAdaptiveStacking(_BaseStacking):
         splits = []
         
         if self.domain_group_strategy == 'leave_one_domain_out':
+            # 对于某些有监督方法，leave_one_domain_out策略并不适用（例如MEKT），
             for test_group in unique_groups:
                 test_mask = groups == test_group
                 train_mask = ~test_mask
@@ -332,6 +305,12 @@ class _BaseDomainAdaptiveStacking(_BaseStacking):
                            len(unique_domains))
             cv = GroupKFold(n_splits=n_splits)
             return list(cv.split(X, y, groups=groups))
+        
+        else:
+            # 5折交叉验证
+            cv = check_cv(5, y, classifier=is_classifier(self))
+            for train_idx, test_idx in cv.split(X, y, groups=groups):
+                splits.append((train_idx, test_idx))
         
         return splits
     
@@ -354,10 +333,12 @@ class _BaseDomainAdaptiveStacking(_BaseStacking):
                 if estimator != "drop":
                     check_is_fitted(estimator)
                     self.estimators_.append(estimator)
+                
         else:
+            
             # Fit the base estimators on the whole training data
             self.estimators_ = Parallel(n_jobs=self.n_jobs)(
-                delayed(_fit_single_estimator)(clone(est), X, y_enc, fit_params)
+                delayed(_fit_single_estimator)(deepcopy(est), X, y_enc, fit_params)
                 for est in all_estimators
                 if est != "drop"
             )
@@ -521,6 +502,10 @@ class DomainAdaptiveStackingClassifier(_BaseDomainAdaptiveStacking, ClassifierMi
             target_domain=target_domain,
             domain_group_strategy=domain_group_strategy,
         )
+        self.classes_ = None
+        self.y_original_ = None
+        self.domain_tags_ = None
+        self.feature_names_in_ = None
     
     def _validate_final_estimator(self):
         """Ensure the final estimator is a classifier."""

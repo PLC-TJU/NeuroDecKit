@@ -16,6 +16,8 @@ import torch.nn as nn
 from torch import Tensor
 from .base import SkorchNet2
 
+__all__ = ["ShallowNet"]
+
 
 class Square(nn.Module):
     def __init__(self):

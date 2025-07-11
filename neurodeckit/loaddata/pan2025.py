@@ -166,7 +166,7 @@ class Pan2025(BaseDataset):
         ch_types = ["eeg"] * 28
 
         info = mne.create_info(
-            ch_names=ch_names + ["STIM014"], ch_types=ch_types + ["stim"], sfreq=250
+            ch_names=ch_names + ["STIM014"], ch_types=ch_types + ["stim"], sfreq=250 # type: ignore
         )
         
         sessions = self.data_path(subject, path=self.path)

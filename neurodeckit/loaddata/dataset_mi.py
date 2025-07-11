@@ -67,7 +67,7 @@ def dataset_loader(dataset_name, subjects, new_fs = 160):
     x, y, _ = paradigm.get_data(dataset=dataset, subjects=subjects)
     
     # 有时会出现数据长度超出预期1个时间点，因此需要减去多余的点
-    data = x[:, :, :-(x.shape[2] % new_fs)] if x.shape[2] % new_fs else x
+    data = x[:, :, :-(x.shape[2] % new_fs)] if x.shape[2] % new_fs else x # type: ignore
     
     unique_label, label = np.unique(y, return_inverse=True)
     
@@ -183,7 +183,7 @@ class Dataset_MI:
         x, y, info = self.paradigm.get_data(dataset=self.dataset, subjects=subjects)
         
         # 由于浮点数问题，可能会出现数据长度超出预期1个时间点，因此需要减去多余的点
-        data = x[:, :, :-(x.shape[2] % self.fs)] if x.shape[2] % self.fs else x
+        data = x[:, :, :-(x.shape[2] % self.fs)] if x.shape[2] % self.fs else x # type: ignore
         
         self.events, label = np.unique(y, return_inverse=True)
         

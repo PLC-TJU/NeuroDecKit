@@ -11,6 +11,8 @@ from braindecode.models.functions import safe_log, square, squeeze_final_output
 from braindecode.models.modules import CombinedConv, Ensure4d, Expression
 from .base import SkorchNet2
 
+__all__ = ["ShallowFBCSPNet"]
+
 @SkorchNet2
 class ShallowFBCSPNet(EEGModuleMixin, nn.Sequential):
     """Shallow ConvNet model from Schirrmeister et al 2017.

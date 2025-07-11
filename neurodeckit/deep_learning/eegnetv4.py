@@ -12,6 +12,8 @@ from braindecode.models.functions import squeeze_final_output
 from braindecode.models.modules import Ensure4d, Expression
 from .base import SkorchNet2
 
+__all__ = ["EEGNetv4"]
+
 
 class Conv2dWithConstraint(nn.Conv2d):
     def __init__(self, *args, max_norm=1, **kwargs):

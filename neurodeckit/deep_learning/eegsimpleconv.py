@@ -7,6 +7,8 @@ import torch
 from torchaudio.transforms import Resample
 from .base import SkorchNet2
 
+__all__ = ["EEGSimpleConv"]
+
 @SkorchNet2
 class EEGSimpleConv(torch.nn.Module):
     def __init__(self, fm, n_convs, resampling, kernel_size,n_chan,n_classes,sfreq,n_subjects=None):
