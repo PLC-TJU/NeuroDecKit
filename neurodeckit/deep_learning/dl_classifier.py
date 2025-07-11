@@ -185,7 +185,7 @@ class DL_Classifier(BaseEstimator, ClassifierMixin, TransformerMixin):
                  lr=1e-3, 
                  max_epochs=300, 
                  device='cpu', 
-                 freqband=None, 
+                 freqbands=None, 
                  dtype='float32', # 默认使用float32以节省内存, 也可以使用float64
                  seed=42, 
                  patience=50, 
@@ -208,7 +208,7 @@ class DL_Classifier(BaseEstimator, ClassifierMixin, TransformerMixin):
         self.Model = None
         self.rsf_method = rsf_method
         self.rsf_dim = rsf_dim
-        self.freqband = freqband
+        self.freqbands = freqbands
         self.dtype = dtype 
         self.seed = seed
         self.patience = patience
@@ -246,7 +246,7 @@ class DL_Classifier(BaseEstimator, ClassifierMixin, TransformerMixin):
                                                              'LightConvNet', 'IFNet'
                                                              ]:
             Process = Formatdata(fs=self.fs, n_times=X.shape[2], alg_name=self.nn_name, dtype=self.dtype,   
-                                 rsf_method=self.rsf_method, rsf_dim=self.rsf_dim, freqband=self.freqband)
+                                 rsf_method=self.rsf_method, rsf_dim=self.rsf_dim, freqbands=self.freqbands)
             X = Process.fit_transform(X, y)
             self.n_bands = Process.n_bands
         

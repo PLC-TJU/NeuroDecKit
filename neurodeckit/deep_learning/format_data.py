@@ -1,8 +1,5 @@
 # -*- coding: utf-8 -*-
-#
-# Authors: LC.Pan
-# Date: 2024/3/13
-# License: BSD 3-Clause License
+
 """
     
    This is a script for formating the EEG data for deep learning models.
@@ -10,10 +7,6 @@
    The script includes:
    1. FilterBank: A class for filtering the EEG data using Chebyshev type 2 filter.
    2. Formatdata: A class for formating the EEG data for deep learning models.
-   
-   The script is modified from the code of https://github.com/GeometricBCI/Tensor-CSPNet-and-Graph-CSPNet/blob/main/utils/load_data.py.
-   
-   The script is modified to include RSF (Riemannian geometry-based spatial filter) method for EEG data preprocessing.
    
    The script is modified to include the following methods:
    1. _generate_rsf_filter: A method for generating the RSF filter for EEG data preprocessing.
@@ -30,6 +23,10 @@
    6. freq_seg: The number of frequency segments for RSF filter.
    7. is_training: A flag for indicating whether the data is for training or testing.
    
+   Author: LC.Pan
+   Date: 2024/3/13
+   License: BSD 3-Clause License
+   
 """
 
 
@@ -39,45 +36,34 @@ from torch.autograd import Variable
 import scipy.signal as signal
 from scipy.signal import cheb2ord, butter, filtfilt
 from scipy.linalg import eigvalsh
-from pyriemann.estimation import Covariances, Shrinkage
+from pyriemann.estimation import Covariances
 from sklearn.base import BaseEstimator, TransformerMixin
 from ..pre_processing import RSF
+from ..utils import generate_intervals
 
 
 class FilterBank:
-    def __init__(self, fs, pass_width=4, f_width=4):
+    def __init__(self, fs, freqbands = generate_intervals(4, 4, (4, 40))):
         self.fs           = fs
+        self.freqbands    = freqbands
+
         self.f_trans      = 2
-        self.f_pass       = np.arange(4, 40, pass_width)
-        self.f_width      = f_width
         self.gpass        = 3
         self.gstop        = 30
         self.filter_coeff = {}
-        self.n_bands       = len(self.f_pass)
+        self.n_bands      = len(self.freqbands)
 
     def get_filter_coeff(self):
         Nyquist_freq = self.fs/2
-
-        for i, f_low_pass in enumerate(self.f_pass):
-            f_pass    = np.asarray([f_low_pass, f_low_pass+self.f_width])
+ 
+        for i, f_pass in enumerate(self.freqbands):
             f_stop    = np.asarray([f_pass[0]-self.f_trans, f_pass[1]+self.f_trans])
             wp        = f_pass/Nyquist_freq
             ws        = f_stop/Nyquist_freq
             order, wn = cheb2ord(wp, ws, self.gpass, self.gstop)
             b, a      = signal.cheby2(order, self.gstop, ws, btype='bandpass')
             self.filter_coeff.update({i:{'b':b,'a':a}})
-        
-        # pass_list = [[8, 30],[8, 13],[13, 18],[18, 26],[26, 30]]
-        # for i, f_pass in enumerate(np.array(pass_list)):
-        #     f_stop    = np.asarray([f_pass[0]-self.f_trans, f_pass[1]+self.f_trans])
-        #     wp        = f_pass/Nyquist_freq
-        #     ws        = f_stop/Nyquist_freq
-        #     order, wn = cheb2ord(wp, ws, self.gpass, self.gstop)
-        #     b, a      = signal.cheby2(order, self.gstop, ws, btype='bandpass')
-        #     # self.filter_coeff.update({i+len(self.f_pass):{'b':b,'a':a}})
-        #     self.filter_coeff.update({i:{'b':b,'a':a}})
-        
-        self.n_bands = len(self.filter_coeff)
+            
         return self.filter_coeff
     
     def filter_data(self,eeg_data,window_details={}):
@@ -103,40 +89,16 @@ class FilterBank:
 
         return filtered_data
 
-# for IFNet
-class IFNetBank(FilterBank):
-    def __init__(self, fs):
-        self.fs           = fs
-        self.f_trans      = 2
-        self.gpass        = 3
-        self.gstop        = 30
-        self.filter_coeff = {}
-        self.n_bands       = 2
-
-    def get_filter_coeff(self):
-        Nyquist_freq = self.fs/2
- 
-        pass_list = [[4, 16],[16, 40]]
-        for i, f_pass in enumerate(np.array(pass_list)):
-            f_stop    = np.asarray([f_pass[0]-self.f_trans, f_pass[1]+self.f_trans])
-            wp        = f_pass/Nyquist_freq
-            ws        = f_stop/Nyquist_freq
-            order, wn = cheb2ord(wp, ws, self.gpass, self.gstop)
-            b, a      = signal.cheby2(order, self.gstop, ws, btype='bandpass')
-            self.filter_coeff.update({i:{'b':b,'a':a}})
-            
-        return self.filter_coeff
-
-
 
 class Formatdata(BaseEstimator, TransformerMixin):
-    def __init__(self, fs, n_times = None, alg_name ='Tensor_CSPNet', rsf_method='none', rsf_dim=4, **kwargs):
+    def __init__(self, fs, n_times = None, alg_name ='Tensor_CSPNet', rsf_method='none', rsf_dim=8, freqbands=None, **kwargs):
         self.fs = fs
         self.alg_name = alg_name
         self.rsf_method = rsf_method if rsf_method is not None else 'none'
         self.rsf_dim = rsf_dim
         self.freq_seg = 4
         self.is_training = False
+        self.freqbands = generate_intervals(4, 4, (4, 40)) if freqbands is None else freqbands
         self.dtype = kwargs.get('dtype', 'float64')
         self.n_bands = 1
         
@@ -154,8 +116,6 @@ class Formatdata(BaseEstimator, TransformerMixin):
             m = len(self.time_freq_graph['1'])
             self.time_windows = [m, m, m, m*2]
             self.graph_M = None
-        else:
-            self.freqband = kwargs.get('freqband', None) # [5,32]
     
     def _butter_bandpass_filter(self, data, lowcut, highcut, fs, order=5):   
         # 设计巴特沃斯带通滤波器
@@ -310,7 +270,7 @@ class Formatdata(BaseEstimator, TransformerMixin):
         # 滤波
         fbank = None
         if self.alg_name in ['Tensor_CSPNet', 'Graph_CSPNet']:
-            fbank = FilterBank(fs = self.fs, pass_width = self.freq_seg)
+            fbank = FilterBank(fs = self.fs, freqbands = self.freqbands)
             _     = fbank.get_filter_coeff()
             '''The shape of x_fb is No. of (trials, frequency bands, channels, timestamps)'''
             X_fb  = fbank.filter_data(X).transpose(1, 0, 2, 3)
@@ -325,14 +285,14 @@ class Formatdata(BaseEstimator, TransformerMixin):
             X_transformed = self._tensor_stack(X_fb)
         
         elif self.alg_name in ['oTensor_CSPNet', 'oGraph_CSPNet']:
-            fbank = FilterBank(fs = self.fs, pass_width = self.freq_seg)
+            fbank = FilterBank(fs = self.fs, freqbands = self.freqbands)
             _     = fbank.get_filter_coeff()
             '''The shape of x_fb is No. of (trials, frequency bands, channels, timestamps)'''
             X_fb  = fbank.filter_data(X).transpose(1, 0, 2, 3)
             X_transformed = self._tensor_stack(X_fb)
             
         elif self.alg_name in ['FBCNet']:
-            fbank = FilterBank(fs = self.fs, pass_width = self.freq_seg)
+            fbank = FilterBank(fs = self.fs, freqbands = self.freqbands)
             _     = fbank.get_filter_coeff()
             '''The shape of x_fb is No. of (trials, channels, timestamps, frequency bands)'''
             X_fb  = fbank.filter_data(X).transpose(1, 2, 3, 0)                
@@ -347,20 +307,20 @@ class Formatdata(BaseEstimator, TransformerMixin):
             X_transformed = np.expand_dims(X_fb, axis=1) # trials, 1, channels, timestamps, frequency bands
         
         elif self.alg_name in ['oFBCNet']:
-            fbank = FilterBank(fs = self.fs, pass_width = self.freq_seg)
+            fbank = FilterBank(fs = self.fs, freqbands = self.freqbands)
             _     = fbank.get_filter_coeff()
             '''The shape of x_fb is No. of (trials, frequency bands, channels, timestamps)'''
             X_fb  = fbank.filter_data(X).transpose(1, 2, 3, 0)  
             X_transformed = np.expand_dims(X_fb, axis=1) # trials, 1, channels, timestamps, frequency bands
         
         elif self.alg_name in ['IFNet']:
-            fbank = IFNetBank(fs = self.fs)
+            fbank = FilterBank(fs = self.fs, freqbands = [(4, 16), (16, 40)])
             _     = fbank.get_filter_coeff()
             X_fb  = fbank.filter_data(X).transpose(1, 0, 2, 3)  
             X_transformed = X_fb.reshape(X_fb.shape[0], X_fb.shape[1] * X_fb.shape[2], X_fb.shape[3]) # trials, channels*frequency bands, timestamps
         
         elif self.alg_name in ['LightConvNet']:
-            fbank = FilterBank(fs = self.fs, pass_width = self.freq_seg)
+            fbank = FilterBank(fs = self.fs, freqbands = self.freqbands)
             _     = fbank.get_filter_coeff()
             '''The shape of x_fb is No. of (trials, channels, timestamps, frequency bands)'''
             X_fb  = fbank.filter_data(X).transpose(1, 2, 3, 0)                
@@ -375,14 +335,14 @@ class Formatdata(BaseEstimator, TransformerMixin):
             X_transformed = X_fb.transpose(0, 3, 1, 2) # trials, frequency bands, channels, timestamps
         
         elif self.alg_name in ['oLightConvNet']:
-            fbank = FilterBank(fs = self.fs, pass_width = self.freq_seg)
+            fbank = FilterBank(fs = self.fs, freqbands = self.freqbands)
             _     = fbank.get_filter_coeff()
             '''The shape of x_fb is No. of (trials, frequency bands, channels, timestamps)'''
             X_fb  = fbank.filter_data(X).transpose(1, 2, 3, 0)  
             X_transformed = X_fb.transpose(0, 3, 1, 2) # trials, frequency bands, channels, timestamps
         
         elif self.alg_name in ['FB-CSP','FB-CSP-LDA','FB-CSP-SVM','RSF-FB-CSP-LDA','RSF-FB-CSP-SVM']:
-            fbank = FilterBank(fs = self.fs, pass_width = self.freq_seg)
+            fbank = FilterBank(fs = self.fs, freqbands = self.freqbands)
             _     = fbank.get_filter_coeff()
             '''The shape of x_fb is No. of (trials, channels, timestamps, frequency bands)'''
             X_fb  = fbank.filter_data(X).transpose(1, 2, 3, 0)   
@@ -398,8 +358,8 @@ class Formatdata(BaseEstimator, TransformerMixin):
         
         # elif self.alg_name in ['EEGNet', 'ShallowNet', 'DeepNet', 'LMDANet']:
         else:
-            if self.freqband is not None:
-                X_fb  = self._butter_bandpass_filter(X, self.freqband[0], self.freqband[1], self.fs) 
+            if self.freqbands is not None and len(self.freqbands) == 2:
+                X_fb  = self._butter_bandpass_filter(X, self.freqbands[0], self.freqbands[1], self.fs) 
             else:
                 X_fb  = X
             
@@ -410,6 +370,7 @@ class Formatdata(BaseEstimator, TransformerMixin):
                 else: 
                     X_fb = self.rsf_transformer.transform(X_fb)
             X_transformed = X_fb
+        
         
         if fbank is not None:
             self.n_bands = fbank.n_bands
