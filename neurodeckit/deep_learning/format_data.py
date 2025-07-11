@@ -53,6 +53,7 @@ class FilterBank:
         self.gpass        = 3
         self.gstop        = 30
         self.filter_coeff = {}
+        self.n_bands       = len(self.f_pass)
 
     def get_filter_coeff(self):
         Nyquist_freq = self.fs/2
@@ -75,7 +76,8 @@ class FilterBank:
         #     b, a      = signal.cheby2(order, self.gstop, ws, btype='bandpass')
         #     # self.filter_coeff.update({i+len(self.f_pass):{'b':b,'a':a}})
         #     self.filter_coeff.update({i:{'b':b,'a':a}})
-            
+        
+        self.n_bands = len(self.filter_coeff)
         return self.filter_coeff
     
     def filter_data(self,eeg_data,window_details={}):
@@ -85,7 +87,7 @@ class FilterBank:
             n_samples = int(self.fs * (window_details.get('tmax') - window_details.get('tmin')))
             #+1
 
-        filtered_data = np.zeros((len(self.filter_coeff),n_trials,n_channels,n_samples))
+        filtered_data = np.zeros((self.n_bands, n_trials, n_channels, n_samples))
 
         for i, fb in self.filter_coeff.items():
             b = fb.get('b')
@@ -109,6 +111,7 @@ class IFNetBank(FilterBank):
         self.gpass        = 3
         self.gstop        = 30
         self.filter_coeff = {}
+        self.n_bands       = 2
 
     def get_filter_coeff(self):
         Nyquist_freq = self.fs/2
@@ -135,6 +138,7 @@ class Formatdata(BaseEstimator, TransformerMixin):
         self.freq_seg = 4
         self.is_training = False
         self.dtype = kwargs.get('dtype', 'float64')
+        self.n_bands = 1
         
         if self.alg_name in ['Tensor_CSPNet','oTensor_CSPNet']:
             self.time_seg = self._calculate_time_segments(n_times, fs)
@@ -304,6 +308,7 @@ class Formatdata(BaseEstimator, TransformerMixin):
     def transform(self, X):
         
         # 滤波
+        fbank = None
         if self.alg_name in ['Tensor_CSPNet', 'Graph_CSPNet']:
             fbank = FilterBank(fs = self.fs, pass_width = self.freq_seg)
             _     = fbank.get_filter_coeff()
@@ -405,6 +410,9 @@ class Formatdata(BaseEstimator, TransformerMixin):
                 else: 
                     X_fb = self.rsf_transformer.transform(X_fb)
             X_transformed = X_fb
+        
+        if fbank is not None:
+            self.n_bands = fbank.n_bands
         
         # 对于Graph-CSPNet，需要返回LGT的图矩阵 
         if self.is_training and self.alg_name in ['Graph_CSPNet', 'oGraph_CSPNet']:

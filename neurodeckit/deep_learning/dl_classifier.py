@@ -214,6 +214,8 @@ class DL_Classifier(BaseEstimator, ClassifierMixin, TransformerMixin):
         self.patience = patience
         self.kwargs = kwargs
         
+        self.n_bands = 1
+        
         self.net_params = {
             'batch_size': self.batch_size,
             'lr': self.lr,
@@ -246,6 +248,7 @@ class DL_Classifier(BaseEstimator, ClassifierMixin, TransformerMixin):
             Process = Formatdata(fs=self.fs, n_times=X.shape[2], alg_name=self.nn_name, dtype=self.dtype,   
                                  rsf_method=self.rsf_method, rsf_dim=self.rsf_dim, freqband=self.freqband)
             X = Process.fit_transform(X, y)
+            self.n_bands = Process.n_bands
         
         # 实例化深度学习模型
         Network = check_nn(self.nn_name)
@@ -256,9 +259,9 @@ class DL_Classifier(BaseEstimator, ClassifierMixin, TransformerMixin):
             Net = Network(len(Process.time_seg), X.shape[1] * X.shape[2], X.shape[3], n_classes = self.n_classes, 
                           net_params=self.net_params)
         elif self.nn_name in ['FBCNet', 'oFBCNet']:
-            Net = Network(X.shape[2], X.shape[3], self.n_classes, net_params=self.net_params)
+            Net = Network(X.shape[2], X.shape[3], self.n_classes, n_bands=self.n_bands, net_params=self.net_params)
         elif self.nn_name in ['LightConvNet']:
-            Net = Network(X.shape[2], X.shape[3], self.n_classes, win_len=self.fs, net_params=self.net_params)# 默认1秒时间窗宽
+            Net = Network(X.shape[2], X.shape[3], self.n_classes, n_bands=self.n_bands, win_len=self.fs, net_params=self.net_params)# 默认1秒时间窗宽
         elif self.nn_name in ['IFNet']:
             Net = Network(n_channels, n_samples, self.n_classes, net_params=self.net_params)
         else:

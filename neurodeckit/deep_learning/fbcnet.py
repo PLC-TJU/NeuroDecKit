@@ -267,11 +267,11 @@ class FBCNet(nn.Module):
                 LinearWithConstraint(inF, outF, max_norm = 0.5, doWeightNorm = doWeightNorm, **kwargs),
                 nn.LogSoftmax(dim = 1))
 
-    def __init__(self, n_channels, n_samples, n_classes = 2, nBands = 9, m = 32,
+    def __init__(self, n_channels, n_samples, n_classes = 2, n_bands = 9, m = 32,
                  temporalLayer = 'LogVarLayer', strideFactor= 4, doWeightNorm = True, *args, **kwargs):
         super().__init__()
 
-        self.nBands = nBands
+        self.nBands = n_bands
         self.m = m
         self.strideFactor = strideFactor
 

@@ -107,7 +107,7 @@ class LightConvNet(nn.Module):
     %(n_channels)
     %(n_samples)
     %(n_classes)
-    bands : int
+    n_bands : int
         The filter dimension of the input multi-view data.
     embed_dim : int
         Number of spatial filters.
@@ -133,7 +133,7 @@ class LightConvNet(nn.Module):
         n_channels: int,
         n_samples: int,
         n_classes: int,
-        bands: int = 9,
+        n_bands: int = 9,
         embed_dim: int = 64,
         win_len: int = 250,
         heads: int = 8,
@@ -144,7 +144,7 @@ class LightConvNet(nn.Module):
         self.win_len = win_len
 
         self.spacial_block = nn.Sequential(
-            nn.Conv2d(bands, embed_dim, (n_channels, 1)), nn.BatchNorm2d(embed_dim), nn.ELU()
+            nn.Conv2d(n_bands, embed_dim, (n_channels, 1)), nn.BatchNorm2d(embed_dim), nn.ELU()
         )
 
         self.temporal_block = LogVarLayer(dim=3)
