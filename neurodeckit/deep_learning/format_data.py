@@ -58,8 +58,8 @@ class FilterBank:
  
         for i, f_pass in enumerate(self.freqbands):
             f_stop    = np.asarray([f_pass[0]-self.f_trans, f_pass[1]+self.f_trans])
-            wp        = f_pass/Nyquist_freq
-            ws        = f_stop/Nyquist_freq
+            wp        = tuple(f/Nyquist_freq for f in f_pass)
+            ws        = tuple(f/Nyquist_freq for f in f_stop)
             order, wn = cheb2ord(wp, ws, self.gpass, self.gstop)
             b, a      = signal.cheby2(order, self.gstop, ws, btype='bandpass')
             self.filter_coeff.update({i:{'b':b,'a':a}})
