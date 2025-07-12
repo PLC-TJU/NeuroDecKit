@@ -267,6 +267,10 @@ class Formatdata(BaseEstimator, TransformerMixin):
                   
     def transform(self, X):
         
+        # 沿用原作的Graph_CSPNet的频段设置
+        if self.alg_name in ['Graph_CSPNet', 'oGraph_CSPNet']:
+            self.freqbands = generate_intervals(4, 4, (4, 40))
+        
         # 滤波
         fbank = None
         if self.alg_name in ['Tensor_CSPNet', 'Graph_CSPNet']:

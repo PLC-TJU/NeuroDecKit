@@ -246,7 +246,7 @@ and employed in the paper's experiments.
 @SkorchNet2
 class Tensor_CSPNet(nn.Module):
 
-    def __init__(self, kernel_size, n_segment, n_channels, n_classes = 2, mlp = False, dataset = 'KU'):
+    def __init__(self, kernel_size, n_segment, n_channels, n_classes = 2, n_bands = 9, mlp = False, dataset = 'KU'):
         # super(Tensor_CSPNet, self).__init__()
         super().__init__()
 
@@ -254,6 +254,8 @@ class Tensor_CSPNet(nn.Module):
         self.channel_in   = n_segment
         
         classes           = n_classes
+        self.n_bands      = n_bands
+        
         self.dims         = [n_channels, int(n_channels*0.75)*2, int(n_channels*0.75)*2, n_channels]
         # self.kernel_size  = 3            # class Formatdata  len(self.time_seg)
         self.kernel_size  = kernel_size
@@ -278,7 +280,8 @@ class Tensor_CSPNet(nn.Module):
         performs the best usually. Hence, we pick self.tcn_width = 9.  
         '''
 
-        self.tcn_width        =  9 
+        # self.tcn_width        =  9 
+        self.tcn_width        =  self.n_bands
         self.Temporal_Block   = nn.Conv2d(1, self.tcn_channels, (self.kernel_size, self.tcn_width*self.dims[-1]**2), stride=(1, self.dims[-1]**2), padding=0).double()
         
         if self._mlp:

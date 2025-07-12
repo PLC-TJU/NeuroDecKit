@@ -257,7 +257,7 @@ class DL_Classifier(BaseEstimator, ClassifierMixin, TransformerMixin):
             Net = Network(graph_M, X.shape[1], X.shape[2], n_classes = self.n_classes, net_params=self.net_params)
         elif self.nn_name in ['Tensor_CSPNet', 'oTensor_CSPNet']:
             Net = Network(len(Process.time_seg), X.shape[1] * X.shape[2], X.shape[3], n_classes = self.n_classes, 
-                          net_params=self.net_params)
+                          n_bands=self.n_bands, net_params=self.net_params)
         elif self.nn_name in ['FBCNet', 'oFBCNet']:
             Net = Network(X.shape[2], X.shape[3], self.n_classes, n_bands=self.n_bands, net_params=self.net_params)
         elif self.nn_name in ['LightConvNet']:
