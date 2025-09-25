@@ -170,8 +170,8 @@ class Dataset_MI:
         self.time_length = time_length
         
         if dataset_name == 'PhysionetMI':
-            # 由于PhysionetMI数据集的88, 92, 100等三个编号的subject的数据存在问题，因此需要将其剔除
-            self.subject_list = [x for x in self.subject_list if x not in [88, 92, 100]]
+            # 由于PhysionetMI数据集的部分subject的数据存在问题（采样率与时间点数不匹配），因此需要将其剔除
+            self.subject_list = [x for x in self.subject_list if x not in [88, 89, 92, 100, 104, 106]]
     
     def get_data(self, subjects: list[int]):
         # 检查subjects是否完全属于subject_list
@@ -222,7 +222,7 @@ class Dataset_Left_Right_MI(Dataset_MI):
         self.time_length = time_length
         
         if dataset_name == 'PhysionetMI':
-            # 由于PhysionetMI数据集的88, 92, 100等三个编号的subject的数据存在问题，因此需要将其剔除
-            self.subject_list = [x for x in self.subject_list if x not in [88, 92, 100]]
+            # 由于PhysionetMI数据集的部分subject的数据存在问题（采样率与时间点数不匹配），因此需要将其剔除
+            self.subject_list = [x for x in self.subject_list if x not in [88, 89, 92, 100, 104, 106]]
         
         

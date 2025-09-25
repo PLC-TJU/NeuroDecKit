@@ -18,7 +18,7 @@ from .csp import TRCSP_weighted as TRCSP
 from .csp import FBCSP
 
 from .sblest import SBLEST
-from .sblest import sblest_kernel
+from .sblest import sbl_kernel
 from .ctssp import SBL_CTSSP as CTSSP
 
 from .feature_select import MutualInformationSelector as MIBIF
@@ -51,7 +51,7 @@ __all__ = [
     'TRCSP',
     'FBCSP',
     'SBLEST',
-    'sblest_kernel',
+    'sbl_kernel',
     'CTSSP',
     'MIBIF',
     'LassoSelector',

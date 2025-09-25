@@ -335,7 +335,8 @@ class _BaseDomainAdaptiveStacking(_BaseStacking):
                     self.estimators_.append(estimator)
                 
         else:
-            
+            if len(all_estimators) < self.n_jobs:   
+                self.n_jobs = len(all_estimators)
             # Fit the base estimators on the whole training data
             self.estimators_ = Parallel(n_jobs=self.n_jobs)(
                 delayed(_fit_single_estimator)(deepcopy(est), X, y_enc, fit_params)

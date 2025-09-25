@@ -3,10 +3,12 @@
 # Version: 0.1.0
 # Description: 定义一些用于构建和管理 sklearn Pipeline 的工具函数
 
-from sklearn.base import BaseEstimator, TransformerMixin
+import numpy as np
+from sklearn.base import BaseEstimator, TransformerMixin, ClassifierMixin
 from sklearn.pipeline import Pipeline, make_pipeline
 from sklearn.preprocessing import FunctionTransformer
 from typing import Callable, Union, List
+
 
 def ensure_pipeline(process: Union[Pipeline, BaseEstimator, List, Callable, None, tuple]):
     """
@@ -107,4 +109,3 @@ def check_pipeline_compatibility(est):
                 return est
 
 
-    

@@ -638,3 +638,108 @@ def check_sample_dims(X, y):
     new_y = np.repeat(y, np.prod(input_shape[:-3]), axis=0)
 
     return new_X, new_y
+
+import shutil
+def clean_cache(cache_dir):
+    """
+    清除指定目录下的缓存文件。
+
+    参数:
+    - cache_dir: str, 缓存目录的路径。
+
+    返回:
+    - 无
+
+    使用说明:
+    - 调用函数时，需要指定缓存目录的路径。
+    - 函数会删除缓存目录下的所有文件。
+    """
+    for file_name in os.listdir(cache_dir):
+        file_path = os.path.join(cache_dir, file_name)
+        try:
+            if os.path.isfile(file_path) or os.path.islink(file_path):
+                os.unlink(file_path)
+            elif os.path.isdir(file_path):
+                shutil.rmtree(file_path)
+        except Exception as e:
+            print('Failed to delete %s. Reason: %s' % (file_path, e))
+
+def clean_cache_by_date(cache_dir, hours=24):
+    """
+    清除指定目录下的缓存文件，根据缓存文件的创建时间长度。
+
+    参数: 
+    - cache_dir: str, 缓存目录的路径。
+    - hours: float, 缓存文件最长有效时间（小时）。 默认值为24。
+
+    返回:
+    - 无
+
+    使用说明:
+    - 调用函数时，需要指定缓存目录的路径和最长有效时间。
+    - 函数会删除缓存目录下创建时间超过指定时间的缓存文件。
+    """
+    import time
+    now = time.time()
+    max_age = hours * 3600  # 最长有效时间（秒）
+    for root, dirs, files in os.walk(cache_dir):
+        for file in files:
+            file_path = os.path.join(root, file)
+            # 获取文件的修改时间
+            file_mtime = os.path.getmtime(file_path)
+            # 判断文件是否超过保留时间
+            if (now - file_mtime) > max_age:
+                os.remove(file_path)
+                print(f"Deleted {file_path}")
+    print("Cache cleanup completed.")
+
+def clean_cache_by_size(cache_dir, max_size=10):
+    """ 
+    清除指定目录下的缓存文件，根据缓存文件的大小。
+
+    参数:
+    - cache_dir: str, 缓存目录的路径。
+    - max_size: int, 缓存目录的最大大小（GB）。 默认值为10。
+
+    返回:
+    - 无
+
+    使用说明:
+    - 调用函数时，需要指定缓存目录的路径和最大大小。
+    - 函数会删除缓存目录下大小超过指定大小的缓存文件，保留最近修改的文件。
+    """
+    
+    max_size *= 1024 ** 3  # 最大大小（GB）   
+    
+    # 获取所有缓存文件的信息
+    file_info = []
+    for root, dirs, files in os.walk(cache_dir):
+        for file in files:
+            file_path = os.path.join(root, file)
+            file_size = os.path.getsize(file_path)
+            file_mtime = os.path.getmtime(file_path)
+            file_info.append((file_path, file_size, file_mtime))
+
+    # 按修改时间排序（最近的在前）
+    file_info.sort(key=lambda x: x[2], reverse=True)
+
+    # 保留最新的文件，总大小不超过max_cache_size
+    current_size = 0
+    files_to_keep = []
+
+    for file_path, file_size, file_mtime in file_info:
+        if current_size + file_size <= max_size:
+            current_size += file_size
+            files_to_keep.append(file_path)
+        else:
+            break
+
+    # 删除不需要保留的文件
+    files_to_delete = set(file_info) - set(files_to_keep)
+
+    for file_path, _, _ in files_to_delete:
+        os.remove(file_path)
+        print(f"Deleted {file_path}")
+
+    print("Cache cleanup completed.")
+

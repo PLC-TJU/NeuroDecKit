@@ -100,7 +100,7 @@ class TL_Classifier(BaseEstimator, ClassifierMixin):
         self.model = combine_processes(pre_est, dpa, end_est, memory=self.memory)
 
     def check_dpa(self, dpa):
-        dpa = 'None' if dpa is None else dpa
+        dpa = 'TLDUMMY' if dpa is None else dpa
         prealignments = {
             'TLDUMMY': make_pipeline(
                 Covariances(estimator=self.cov_estimator),
@@ -142,7 +142,7 @@ class TL_Classifier(BaseEstimator, ClassifierMixin):
         return dpa     
     
     def check_raw_dpa(self, dpa):
-        dpa = 'None' if dpa is None else dpa
+        dpa = 'TLDUMMY' if dpa is None else dpa
         prealignments = {
             'TLDUMMY': make_pipeline(
                 TLDummy(),

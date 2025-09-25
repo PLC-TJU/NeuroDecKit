@@ -15,7 +15,9 @@ from pyriemann.utils.mean import mean_covariance
 from pyriemann.utils.utils import check_weights
 from pyriemann.utils.ajd import ajd_pham
 from pyriemann.utils.base import invsqrtm, logm
-from neurodeckit.machine_learning import sblest_kernel
+from neurodeckit.machine_learning import sbl_kernel
+import torch
+from neurodeckit.utils import get_gpu_usage
 
 def enhanced_cov_old(X, t_win, t_step, tau, whiten_filter=None, estimator='cov', metric='euclid', sample_weight=None):
     """
@@ -612,6 +614,12 @@ class SBL_CTSSP(BaseEstimator, ClassifierMixin):
         if np.squeeze(y).ndim != 1:
             raise ValueError('y must be of shape (n_trials,).')
         
+        if self.device == 'auto':
+            if get_gpu_usage()[0] < 60 and torch.cuda.is_available():
+                self.device = 'cuda'
+            else:
+                self.device = 'cpu'
+        
         classes = np.unique(y)
         self.classes_ = classes
         assert len(classes) == 2, "Can only do 2-class SBL_CTSSP"
@@ -630,7 +638,7 @@ class SBL_CTSSP(BaseEstimator, ClassifierMixin):
             sample_weight=sample_weight
             )
         R = self._get_vector(Cov)
-        self.W, self.alpha, self.V = sblest_kernel(
+        self.W, self.alpha, self.V = sbl_kernel(
             R, Y, epoch=self.epoch, device=self.device)
         
         return self

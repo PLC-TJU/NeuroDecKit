@@ -8,8 +8,10 @@
 # Nov 22 2023, doi: 10.1088/1741-2552/ad0a01.
 
 import numpy as np
+import random
 import itertools
-from sklearn.base import BaseEstimator, ClassifierMixin
+from sklearn.pipeline import Pipeline
+from sklearn.base import BaseEstimator, ClassifierMixin, TransformerMixin
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis as LDA
 from sklearn.linear_model import LogisticRegression as LR
 
@@ -32,6 +34,7 @@ class EL_Classifier(BaseEstimator, ClassifierMixin):
                  n_jobs=1,
                  stack_method='auto',
                  cv=5,
+                 memory=None,
                  **kwargs):
         
         # 参数初始化
@@ -46,6 +49,7 @@ class EL_Classifier(BaseEstimator, ClassifierMixin):
         self.n_jobs = n_jobs
         self.stack_method = stack_method
         self.cv = cv
+        self.memory = memory
         self.kwargs = kwargs
         
         # 生成参数组合
@@ -58,12 +62,12 @@ class EL_Classifier(BaseEstimator, ClassifierMixin):
         
         # 创建元模型包装器
         self.stacking_models_ = [
-            (f'model_{i}', model)
+            (f'model_{i}_{random.randint(1, 1e9)}', model)
             for i, model in enumerate(self.base_models_)
         ]
         
         # 创建堆叠分类器
-        self.stacker_ = StackingClassifier(
+        self.model = StackingClassifier(
             estimators=self.stacking_models_,
             final_estimator=self.meta_classifier,
             cv=self.cv,
@@ -71,7 +75,7 @@ class EL_Classifier(BaseEstimator, ClassifierMixin):
             n_jobs=self.n_jobs,
             target_domain=self.target_domain,
         )
-    
+          
     def _create_base_models(self):
         """创建基础模型集合"""
         models = []
@@ -84,6 +88,7 @@ class EL_Classifier(BaseEstimator, ClassifierMixin):
                 end_time=time_window[1],
                 lowcut=freq_window[0],
                 highcut=freq_window[1],
+                memory=self.memory,
                 **self.kwargs
             )
             
@@ -91,6 +96,7 @@ class EL_Classifier(BaseEstimator, ClassifierMixin):
                 pre_est=pre_processor.process,
                 target_domain=self.target_domain,
                 tl_mode='TL',
+                memory=self.memory,
                 **self.kwargs
             )
             models.append(model)
@@ -117,7 +123,7 @@ class EL_Classifier(BaseEstimator, ClassifierMixin):
         self.classes_ = np.unique(y_dec)
         
         # 训练模型
-        self.stacker_.fit(X, y_enc)
+        self.model.fit(X, y_enc)
         
         return self
     
@@ -134,7 +140,7 @@ class EL_Classifier(BaseEstimator, ClassifierMixin):
         y_pred : ndarray, shape (n_trials,)
             Predicted labels for each trial.
         """
-        return self.stacker_.predict(X)
+        return self.model.predict(X)
     
     def predict_proba(self, X):
         """Predict the probabilities for the test data.
@@ -149,7 +155,7 @@ class EL_Classifier(BaseEstimator, ClassifierMixin):
         y_pred : ndarray, shape (n_trials, n_classes)
             Predicted probabilities for each trial and each class.
         """
-        return self.stacker_.predict_proba(X)
+        return self.model.predict_proba(X)
     
     def score(self, X, y_enc):
         """Return the mean accuracy on the given test data and labels.
@@ -167,7 +173,7 @@ class EL_Classifier(BaseEstimator, ClassifierMixin):
             Mean accuracy of self.predict(X) wrt. y.
         """ 
         _, y_dec, _ = decode_domains(X, y_enc)
-        return self.stacker_.score(X, y_dec)
+        return self.model.score(X, y_dec)
     
     def get_feature_importances(self):
         """获取元分类器的特征重要性（如果可用）"""
@@ -194,11 +200,9 @@ if __name__ == '__main__':
     from ..loaddata import Dataset_Left_Right_MI
     from ..transfer_learning import TLSplitter, encode_datasets
     
-    dataset_name = 'Pan2023'
+    dataset_name = 'Pan2025'
     fs = 250
-    datapath = r'E:\datasets'
-    # dataset = Dataset_MI(dataset_name,fs=fs,fmin=8,fmax=30,tmin=0,tmax=4,path=datapath)
-    dataset = Dataset_Left_Right_MI(dataset_name,fs=fs,fmin=1,fmax=40,tmin=0,tmax=4,path=datapath)
+    dataset = Dataset_Left_Right_MI(dataset_name,fs=fs,fmin=1,fmax=40,tmin=0,tmax=4)
     subjects = dataset.subject_list[:3]
 
     datas, labels = [], []
@@ -209,7 +213,7 @@ if __name__ == '__main__':
 
     # 设置交叉验证
     n_splits=5
-    cv = StratifiedShuffleSplit(n_splits=n_splits, random_state=2024) #可以控制训练集的数量
+    cv = StratifiedShuffleSplit(n_splits=n_splits, random_state=2024) 
 
     for sub in subjects:
 
@@ -223,7 +227,6 @@ if __name__ == '__main__':
             
             Model = EL_Classifier(target_domain=target_domain, n_jobs=-1)
             
-            # tl_cv = TLSplitter(target_domain=target_domain, cv=None, no_calibration=True)
             tl_cv = TLSplitter(target_domain=target_domain, cv=cv, no_calibration=False)
             
             acc = []

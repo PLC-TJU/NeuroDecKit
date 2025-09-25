@@ -15,13 +15,12 @@ from sklearn.base import BaseEstimator, ClassifierMixin
 
 warnings.filterwarnings('ignore')
 
-def sblest_kernel(X, Y, epoch=5000, tol=1e-5, epoch_print=None, device='cpu'):
+def sbl_kernel(X, Y, epoch=5000, tol=2e-4, epoch_print=None, device='cpu'):
     """
-    SBLEST     : Sparse Bayesina Learning for End-to-end Spatio-Temporal-filtering-based 
-                 single-trial EEG classification [1]
+    SBL        : Sparse Bayesina Learning [1]
 
     --- Parameters ---
-    X          : M trials of Feature. [M, (K*C)^2].
+    X          : M trials of Feature. [M, Nc^2]. where Nc is the number of channels.
     Y          : True label vector. [M, 1].
     epoch      : Number of iterations for optimization.
     tol        : Tolerance for convergence.
@@ -29,9 +28,9 @@ def sblest_kernel(X, Y, epoch=5000, tol=1e-5, epoch_print=None, device='cpu'):
     device     : 'cpu' or 'cuda'
 
     --- Returns ---
-    W          : Estimated low-rank weight matrix. [K*C, K*C].
+    W          : Estimated low-rank weight matrix. [Nc, Nc].
     alpha      : Classifier weights. [L, 1].
-    V          : Spatio-temporal filter matrix. [K*C, L].
+    V          : Spatio-temporal filter matrix. [Nc, L].
                  Each column of V represents a spatio-temporal filter.
 
     Reference:
@@ -44,21 +43,21 @@ def sblest_kernel(X, Y, epoch=5000, tol=1e-5, epoch_print=None, device='cpu'):
     
     # Check properties of R
     M, D_R = X.shape  # M: number of samples; D_R: dimension of vec(R_m)
-    KC = round(np.sqrt(D_R))
+    Nc = round(np.sqrt(D_R))
     Loss_old = 1e12
     threshold = 0.05
 
-    assert D_R == KC ** 2, "ERROR: Columns of A do not align with square matrix"
+    assert D_R == Nc ** 2, "ERROR: Columns of A do not align with square matrix"
 
     # Check if R is symmetric
     for j in range(M):
-        row_cov = reshape(X[j, :], (KC, KC))
+        row_cov = reshape(X[j, :], (Nc, Nc))
         row_cov = (row_cov + row_cov.T) / 2
         assert norm(row_cov - row_cov.T) < 1e-4, "ERROR: Measurement row does not form symmetric matrix"
 
     # Initializations
-    U = zeros(KC, KC, dtype=float64).to(device)  # estimated low-rank matrix W initialized to be Zeros
-    Psi = eye(KC, dtype=float64).to(device)  # covariance matrix of Gaussian prior distribution is initialized to be unit diagonal matrix
+    U = zeros(Nc, Nc, dtype=float64).to(device)  # estimated low-rank matrix W initialized to be Zeros
+    Psi = eye(Nc, dtype=float64).to(device)  # covariance matrix of Gaussian prior distribution is initialized to be unit diagonal matrix
     lambda_noise = 1.  # variance of the additive noise set to 1
 
     # Optimization loop
@@ -66,42 +65,42 @@ def sblest_kernel(X, Y, epoch=5000, tol=1e-5, epoch_print=None, device='cpu'):
 
         # update B,Sigma_y,u
         RPR = zeros(M, M, dtype=float64).to(device)
-        B = zeros(KC ** 2, M, dtype=float64).to(device)
-        for j in range(KC):
-            start = j * KC
-            stop = start + KC
+        B = zeros(Nc ** 2, M, dtype=float64).to(device)
+        for j in range(Nc):
+            start = j * Nc
+            stop = start + Nc
             Temp = mm(Psi, X[:, start:stop].T)
             B[start:stop, :] = Temp
             RPR = RPR + mm(X[:, start:stop], Temp)
         Sigma_y = RPR + lambda_noise * eye(M, dtype=float64).to(device)
         uc = mm(mm(B, inverse(Sigma_y)), Y)  # maximum a posterior estimation of uc
-        Uc = reshape(uc, (KC, KC))
+        Uc = reshape(uc, (Nc, Nc))
         U = (Uc + Uc.T) / 2
         u = U.T.flatten()  # vec operation (Torch)
 
         # Update Phi (dual variable of Psi)
         Phi = []
         SR = mm(inverse(Sigma_y), X)
-        for j in range(KC):
-            start = j * KC
-            stop = start + KC
+        for j in range(Nc):
+            start = j * Nc
+            stop = start + Nc
             Phi_temp = Psi - Psi @ X[:, start:stop].T @ SR[:, start:stop] @ Psi
             Phi.append(Phi_temp)
 
         # Update Psi
         PHI = 0
         UU = 0
-        for j in range(KC):
+        for j in range(Nc):
             PHI = PHI + Phi[j]
             UU = UU + U[:, j].reshape(-1, 1) @ U[:, j].reshape(-1, 1).T
         # UU = U @ U.T
-        Psi = ((UU + UU.T) / 2 + (PHI + PHI.T) / 2) / KC    # make sure Psi is symmetric
+        Psi = ((UU + UU.T) / 2 + (PHI + PHI.T) / 2) / Nc    # make sure Psi is symmetric
 
         # Update theta (dual variable of lambda)
         theta = 0
-        for j in range(KC):
-            start = j * KC
-            stop = start + KC
+        for j in range(Nc):
+            start = j * Nc
+            stop = start + Nc
             theta = theta + (Phi[j] @ X[:, start:stop].T @ X[:, start:stop]).trace()
 
         # Update lambda
@@ -213,7 +212,7 @@ def enhanced_cov(X, K, tau, Wh=None, device='cpu'):
     # Ensure X is a tensor
     X = torch.tensor(X, dtype=torch.float64, device=device)
     
-    # Initialization, [KC, KC]: dimension of augmented covariance matrix
+    # Initialization, [Nc, Nc]: dimension of augmented covariance matrix
     X_order_k = None
     C, T, M = X.shape
     Cov = []
@@ -285,7 +284,7 @@ class SBLEST(BaseEstimator, ClassifierMixin):
         Y = np.where(Y == np.unique(Y)[0], 1, -1)# Convert labels to -1 and 1
         Y = np.array(Y).reshape(-1, 1)
         R_train, self.Wh = enhanced_cov(X, self.K, self.tau, device=self.device)
-        self.W, self.alpha, self.V = sblest_kernel(
+        self.W, self.alpha, self.V = sbl_kernel(
             R_train, Y, epoch=self.epoch, epoch_print=self.epoch_print, device=self.device)
         return self 
 

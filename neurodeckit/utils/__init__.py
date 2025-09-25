@@ -17,6 +17,8 @@ from .func import(
     create_folder, #创建文件夹
     extract_dict_keys, #提取字典中的键值
     check_sample_dims, #检查样本维度
+    clean_cache_by_date, #删除缓存文件(按日期)
+    clean_cache_by_size, #删除缓存文件(按大小)
 )
 
 from .info import(
@@ -63,4 +65,6 @@ __all__ = [
     "combine_processes",
     "check_pipeline_compatibility",
     "check_completed_jobs",
+    "clean_cache_by_date",
+    "clean_cache_by_size",
 ]
