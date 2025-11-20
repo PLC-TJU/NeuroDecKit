@@ -184,7 +184,7 @@ class BaseEvaluator(ABC):
     """
     def __init__(self, 
                  info: pd.DataFrame = None, 
-                 cv: Union[float, Any] = None, 
+                 cv: Union[float, Any] = 0, 
                  metrics: Optional[List[str]] = ['accuracy'],
                 ):
         """
@@ -193,7 +193,7 @@ class BaseEvaluator(ABC):
         参数:
         info : DataFrame, (n_samples, 3)
             样本信息 [subject, session, block/run]
-        cv : float | 交叉验证器对象, default=None
+        cv : float | 交叉验证器对象, default=0
             目标域数据划分方式
         metrics : str | List[str], optional
             需要计算的指标列表或单个指标名称

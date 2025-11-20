@@ -3,6 +3,7 @@ from pyriemann.estimation import Covariances, Kernels, Shrinkage
 from pyriemann.utils.mean import mean_covariance
 from pyriemann.classification import FgMDM, MDM
 from pyriemann.classification import SVC as RKSVM
+from pyriemann.classification import KNearestNeighbor as RKNN
 from pyriemann.spatialfilters import Xdawn
 
 from .dsp import DCPM, DSP, FBDSP
@@ -36,6 +37,7 @@ __all__ = [
     'mean_covariance',
     'FgMDM',
     'MDM',
+    'RKNN',
     'RKSVM', 
     'Xdawn',
     'DCPM',

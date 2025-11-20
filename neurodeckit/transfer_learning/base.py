@@ -223,14 +223,14 @@ class TLSplitter:
     ----------
     target_domain : str
         Domain considered as target.
-    cv : float | BaseCrossValidator | BaseShuffleSplit | list[float, float], default=None
+    cv : float | BaseCrossValidator | BaseShuffleSplit | list[float, float], default = 0
         Determines the cross-validation splitting strategy:
         - float (0 <= cv <= 1): fraction of target domain for training
         - list[float, float]: [train_ratio, test_ratio] for target domain
         - CrossValidator: sklearn cross-validation iterator
         Special cases:
-        - cv=0: equivalent to no_calibration=True
-        - cv=1: equivalent to modeling=True
+        - cv = 0: equivalent to no_calibration=True
+        - cv = 1: equivalent to modeling=True
     no_calibration : bool, default=False
         Use entire target domain as test set (calibration-free).
     modeling : bool, default=False  
@@ -245,7 +245,7 @@ class TLSplitter:
     .. modified:: LC.Pan 2024/6/23
     """
 
-    def __init__(self, target_domain, cv, no_calibration=False, modeling=False):
+    def __init__(self, target_domain, cv=0, no_calibration=False, modeling=False):
         self.target_domain = target_domain
         self.cv = cv 
         self.no_calibration = no_calibration
