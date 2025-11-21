@@ -3,10 +3,11 @@ import os
 import re # 引入 re 模块
 from setuptools import setup, find_packages
 
+here = os.path.abspath(os.path.dirname(__file__))
+
 def get_version():
-    here = os.path.abspath(os.path.dirname(__file__))
-    # 使用正则表达式从 _version.py 文件中安全读取版本号
-    with open(os.path.join(here, 'neurodeckit', '_version.py'), encoding='utf-8') as f:
+    version_path = os.path.join(here, 'neurodeckit', '_version.py')
+    with open(version_path, encoding='utf-8') as f:
         version_file = f.read()
     
     # 查找 __version__ = "X.Y.Z"
@@ -54,7 +55,7 @@ setup(
         'psutil',
         'pynvml',
         'pyriemann>=0.6.0',
-        'scikit_learn',
+        'scikit-learn',
         'scipy',
         'skorch',
         'statsmodels',
