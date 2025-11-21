@@ -1,0 +1,103 @@
+# .github/workflows/publish.yml
+name: Bump Version & Publish to PyPI
+
+on:
+  # 手动触发，选择更新类型
+  workflow_dispatch:
+    inputs:
+      part:
+        description: 'Version part to bump (patch/minor/major)'
+        required: true
+        default: 'patch'
+        type: choice
+        options:
+        - patch
+        - minor
+        - major
+
+permissions:
+  contents: write      # 允许提交代码和创建 Release
+  id-token: write      # 允许使用 OIDC 进行 PyPI 认证 (Trusted Publisher)
+
+jobs:
+  release-and-publish:
+    runs-on: ubuntu-latest
+    steps:
+      # ----------------------------------------------------------------
+      # 第一阶段：准备环境与代码
+      # ----------------------------------------------------------------
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0 
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip build bump2version twine
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      # ----------------------------------------------------------------
+      # 第二阶段：更新版本号 (Bump Version)
+      # ----------------------------------------------------------------
+      - name: Bump version
+        id: bump
+        # 使用 inputs.part (patch/minor/major)
+        run: bump2version ${{ inputs.part }} --allow-dirty
+
+      - name: Get new version
+        id: get_version
+        run: |
+          # 获取 bump2version 生成的最新 Tag
+          NEW_TAG=$(git describe --tags --abbrev=0)
+          echo "New Tag is: $NEW_TAG"
+          echo "new_version=$NEW_TAG" >> $GITHUB_OUTPUT
+
+      - name: Push new commit and tag
+        run: |
+          git push
+          git push --tags
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
+
+      # ----------------------------------------------------------------
+      # 第三阶段：构建安装包 (Build)
+      # ----------------------------------------------------------------
+      - name: Build sdist and wheel
+        run: |
+          python -m build --sdist --wheel
+
+      - name: Check distributions
+        run: |
+          twine check dist/*
+
+      # ----------------------------------------------------------------
+      # 第四阶段：创建 GitHub Release
+      # ----------------------------------------------------------------
+      - name: Create GitHub Release
+        uses: actions/create-release@v1
+        with:
+          tag_name: ${{ steps.get_version.outputs.new_version }}
+          release_name: Release ${{ steps.get_version.outputs.new_version }}
+          body: 'Auto release of version ${{ steps.get_version.outputs.new_version }}'
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # ----------------------------------------------------------------
+      # 第五阶段：发布到 PyPI (Publish)
+      # ----------------------------------------------------------------
+      - name: Publish to PyPI (Trusted Publisher)
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist/
