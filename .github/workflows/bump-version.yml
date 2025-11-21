@@ -3,19 +3,18 @@
 name: Bump version & Create Release
 
 on:
-  push:
-    branches: [ main ]
-    paths:
-      - 'neurodeckit/_version.py'
-      - 'setup.py'
-    exclude:
-      branches:
-        - 'dependabot/**'
-      tags:
-        - '**'
-      paths:
-        - 'neurodeckit/_version.py'
-        - 'setup.py'
+  # 手动触发
+  workflow_dispatch:
+    inputs:
+      part:
+        description: 'Version part to bump (patch/minor/major)'
+        required: true
+        default: 'patch'
+        type: choice
+        options:
+        - patch
+        - minor
+        - major
 
 permissions:
   contents: write
@@ -41,14 +40,14 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           
-      - name: Bump patch version
+      - name: Bump version
         id: bump
-        run: bump2version patch --allow-dirty
+        # 使用手动输入的参数 (patch, minor, 或 major)
+        run: bump2version ${{ inputs.part }} --allow-dirty
         
       - name: Get new version
         id: get_version
         run: |
-          # 获取 bump2version 创建的新标签名
           NEW_TAG=$(git describe --tags --abbrev=0)
           echo "New Tag is: $NEW_TAG"
           echo "new_version=$NEW_TAG" >> $GITHUB_OUTPUT
