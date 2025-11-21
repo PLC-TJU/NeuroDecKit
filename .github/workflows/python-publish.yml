@@ -5,8 +5,8 @@ on:
     types: [published]
 
 permissions:
-  contents: read      # 读取源码
-  packages: write     # 用于上传包到 PyPI
+  contents: read     
+  packages: write    
 
 jobs:
   build:
@@ -17,11 +17,6 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.x"
-
-      - name: Validate version
-        run: |
-          CURRENT_VERSION=$(python -c "from neurodeckit._version import __version__; print(__version__)")
-          echo "Building version: $CURRENT_VERSION"
 
       - name: Install build tools
         run: |
@@ -57,7 +52,6 @@ jobs:
       - name: Publish to PyPI via Twine
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
-          # 指定打包产物目录
           packages-dir: dist/
-          user: __token__     # <-- 必须写！
-          password: ${{ secrets.PYPI_API_TOKEN }}  # <-- 必须写！&#8203;:contentReference[oaicite:0]{index=0}
+          user: __token__ 
+          password: ${{ secrets.PYPI_API_TOKEN }} 
