@@ -1,6 +1,6 @@
 import io
 import os
-import re # 引入 re 模块
+import re
 from setuptools import setup, find_packages
 
 here = os.path.abspath(os.path.dirname(__file__))

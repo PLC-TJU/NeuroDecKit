@@ -1,1 +1,11 @@
+/build/
+/neurodeckit.egg-info/
+/neurodeckit/analysis/__pycache__
 /neurodeckit/deep_learning/__pycache__
+/neurodeckit/ensemble_learning/__pycache__
+/neurodeckit/evaluation/__pycache__
+/neurodeckit/load_data/__pycache__
+/neurodeckit/machine_learning/__pycache__
+/neurodeckit/pre_processing/__pycache__
+/neurodeckit/transfer_learning/__pycache__
+/neurodeckit/utils/__pycache__
