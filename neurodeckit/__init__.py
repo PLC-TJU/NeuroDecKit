@@ -1,4 +1,5 @@
-# This file is the main file of the NeuroDecKit package.
+# neurodeckit/__init__.py
+
 from . import analysis
 from . import loaddata
 from . import deep_learning

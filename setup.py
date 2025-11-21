@@ -1,15 +1,23 @@
 import io
 import os
+import re # 引入 re 模块
 from setuptools import setup, find_packages
 
+def get_version():
+    here = os.path.abspath(os.path.dirname(__file__))
+    # 使用正则表达式从 _version.py 文件中安全读取版本号
+    with open(os.path.join(here, 'neurodeckit', '_version.py'), encoding='utf-8') as f:
+        version_file = f.read()
+    
+    # 查找 __version__ = "X.Y.Z"
+    version_match = re.search(r"^__version__\s*=\s*['\"]([^'\"]*)['\"]", version_file, re.M)
+    
+    if version_match:
+        return version_match.group(1)
+    raise RuntimeError("Unable to find version string.")
+
 # 读取版本号
-here = os.path.abspath(os.path.dirname(__file__))
-version_ns = {}
-if 'NEURODECKIT_VERSION' in os.environ:
-    version_ns['__version__'] = os.environ['NEURODECKIT_VERSION']
-else:
-    with open(os.path.join(here, 'neurodeckit', '_version.py')) as vf:
-        exec(vf.read(), version_ns)
+version_ns = {'__version__': get_version()}
 
 print(f"Current version: {version_ns['__version__']}")
 
