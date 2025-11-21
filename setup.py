@@ -5,8 +5,13 @@ from setuptools import setup, find_packages
 # 读取版本号
 here = os.path.abspath(os.path.dirname(__file__))
 version_ns = {}
-with open(os.path.join(here, 'neurodeckit', '_version.py')) as vf:
-    exec(vf.read(), version_ns)
+if 'NEURODECKIT_VERSION' in os.environ:
+    version_ns['__version__'] = os.environ['NEURODECKIT_VERSION']
+else:
+    with open(os.path.join(here, 'neurodeckit', '_version.py')) as vf:
+        exec(vf.read(), version_ns)
+
+print(f"Current version: {version_ns['__version__']}")
 
 # 读取 README
 with io.open(os.path.join(here, 'README.md'), encoding='utf-8') as f:
