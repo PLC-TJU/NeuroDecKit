@@ -12,7 +12,7 @@ NeuroDecKit is a modular and extensible MATLAB toolbox for Motor Imagery Electro
 NeuroDecKit systematically integrates algorithms across nine functional components:
 
 | Module | Methods Count | Representative Algorithms |
-|--------|---------------|---------------------------|
+|:--------|:---------------:|:---------------------------|
 | **Spectral Filtering** | 2 | Butterworth, Chebyshev |
 | **Channel Selection** | 3 | Correlation-based, CSP weights, Riemannian distance |
 | **Spatial Filtering** | 3 | CSP, RSF, Laplace |
@@ -81,10 +81,11 @@ Detailed results available in:
 [Cross-Session](tests/results/cross_session/Shin2017A/csv_result/result_mean.csv) |
 [Cross-Subject](tests/results/cross_subject/Shin2017A/csv_result/result_mean.csv)
 
-
 ## 🤝 Related Research Resources
 
 We express our gratitude to the open-source community, which facilitates the broader dissemination of research by other researchers and ourselves. The coding style in this repository is relatively rough. We welcome anyone to refactor it to make it more efficient. Our model codebase is largely based on the following repositories:
+
+- [<img src="https://img.shields.io/badge/GitHub-scikit--learn-b31b1b"></img>](https://github.com/scikit-learn/scikit-learn) A widely used machine learning library in Python that provides simple and efficient tools for data mining and data analysis.
 
 - [<img src="https://img.shields.io/badge/GitHub-MOABB-b31b1b"></img>](https://github.com/NeuroTechX/moabb) An open science project aimed at establishing a comprehensive benchmark for BCI algorithms using widely available EEG datasets.
 
@@ -92,7 +93,7 @@ We express our gratitude to the open-source community, which facilitates the bro
 
 - [<img src="https://img.shields.io/badge/GitHub-pyRiemann-b31b1b"></img>](https://github.com/pyRiemann/pyRiemann) A Python library focused on Riemannian geometry methods for EEG signal classification. pyRiemann provides a suite of tools for processing and classifying EEG signals in Riemannian space.
 
-- [<img src="https://img.shields.io/badge/GitHub-Braindecode-b31b1b"></img>](https://github.com/braindecode/braindecode) Contains several deep learning models such as EEGNet, ShallowConvNet, and DeepConvNet, designed specifically for EEG signal classification. Braindecode aims to provide an easy-to-use deep learning toolbox.
+- [<img src="https://img.shields.io/badge/GitHub-Braindecode-b31b1b"></img>](https://github.com/braindecode/braindecode) Contains several deep learning models such as EEGNet, ShallowConvNet (sCNN), and DeepConvNet (dCNN), designed specifically for EEG signal classification. Braindecode aims to provide an easy-to-use deep learning toolbox.
 
 - [<img src="https://img.shields.io/badge/GitHub-dpeeg-b31b1b"></img>](https://github.com/SheepTAO/dpeeg) provides several deep learning models such as EEGConformer, LightConvNet, and MSVTNet for EEG signal classification.
 
