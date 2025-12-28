@@ -1,4 +1,4 @@
-from .meta_anaysis import meta_analysis
+from .meta_analysis import meta_analysis_advanced as meta_analysis
 
 
 
