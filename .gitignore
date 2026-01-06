@@ -9,3 +9,4 @@
 /neurodeckit/pre_processing/__pycache__
 /neurodeckit/transfer_learning/__pycache__
 /neurodeckit/utils/__pycache__
+/tests/checkpoints

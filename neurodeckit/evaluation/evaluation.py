@@ -415,7 +415,7 @@ class BaseEvaluator(ABC):
                 else:
                     model_results[metric] = values
             
-            model_results['folds'] = len(fold_results['accuracy'])
+            model_results['folds'] = len(fold_results['train_time'])
             results[model_name] = model_results
             
         return results
